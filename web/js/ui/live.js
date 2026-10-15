@@ -20,6 +20,24 @@ function bannerFor(view, notice) {
   return null;
 }
 
+// In full screen the numbers are sized to the tile height; shrink any that are too wide.
+const FIT_IDS = ['v-pace', 'v-time', 'v-dist', 'v-spm', 'v-power', 'v-knob', 'v-kcal'];
+let fitKey = '';
+
+export function fitValues(force = false) {
+  const immersive = document.body.classList.contains('immersive');
+  const key = `${immersive}|${innerWidth}x${innerHeight}|${FIT_IDS.map((id) => $(id).textContent.length).join(',')}`;
+  if (!force && key === fitKey) return; // only re-measure when the text length or screen changes
+  fitKey = key;
+  for (const id of FIT_IDS) {
+    const el = $(id);
+    el.style.fontSize = '';
+    if (!immersive || el.scrollWidth <= el.clientWidth) continue;
+    const size = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = `${Math.floor((size * el.clientWidth * 0.97) / el.scrollWidth)}px`;
+  }
+}
+
 export function renderLive(view, units, notice) {
   set('v-pace', fmtPace(view.pace));
   set('v-avgpace', fmtPace(view.avgPace));
@@ -39,6 +57,7 @@ export function renderLive(view, units, notice) {
   set('v-kcal', fmtInt(view.kcal));
   set('v-kcal-src', view.kcalSource === 'estimate' ? 'estimated' : 'from rower');
 
+  fitValues();
   const b = bannerFor(view, notice);
   const el = $('banner');
   el.hidden = !b;
@@ -91,6 +110,9 @@ function stepSummary(s) {
 export function renderWorkout(run, p, view, hasReference) {
   const panel = $('workout-panel');
   panel.hidden = !run;
+  // the workout sets the knob at every step, so there's nothing to press
+  $('tile-knob').classList.toggle('auto', !!run);
+  set('knob-sub', run ? 'set by workout' : 'match the rower');
   for (const id of ['tile-pace', 'tile-spm']) delete $(id).dataset.target;
   if (!run) return;
   const total = run.steps.length;

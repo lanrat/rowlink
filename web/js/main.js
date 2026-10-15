@@ -6,7 +6,7 @@ import { bytesToHex } from './protocol/ftms.js';
 import { BleTransport, bluetoothSupport } from './ble/transport.js';
 import { ReplayTransport, parseCapture } from './ble/replay.js';
 import { SimulatorTransport } from './ble/simulator.js';
-import { renderLive, renderConnection, renderWorkout, renderKnobPrompt, renderWorkoutDone } from './ui/live.js';
+import { renderLive, renderConnection, renderWorkout, renderKnobPrompt, renderWorkoutDone, fitValues } from './ui/live.js';
 import { WorkoutRun, isHard } from './workout/engine.js';
 import { sound, unlockAudio, setSoundEnabled } from './workout/sound.js';
 import { WorkoutsView } from './ui/workouts.js';
@@ -240,7 +240,8 @@ function completeWorkout() {
   const text = `${d.value} ${d.unit} in ${fmtTime(pipeline.clock.movingNow(transport.now()))}.${refPaceS ? ` Average pace ${fmtPace(refPaceS)} /500m.` : ''}`;
   endWorkout();
   newSession({ resetRower: true }); // saves the workout session
-  workoutDone = { name: w.name, text, refPaceS };
+  // closes itself so nothing needs a tap; a reference-pace offer stays up a little longer
+  workoutDone = { name: w.name, text, refPaceS, hideAt: performance.now() + (refPaceS ? 60000 : 30000) };
 }
 
 function knobPromptView(v, wallS) {
@@ -301,6 +302,7 @@ function showNotice(text, seconds = 8) {
 }
 
 function detach() {
+  exitFullscreen(); // the connect screen needs the normal layout
   endWorkout();
   finishSession();
   lostAt = null;
@@ -311,6 +313,47 @@ function detach() {
   renderConnection('disconnected');
 showKnownRower();
 $('app-version').textContent = APP_VERSION;
+
+// ---------- full screen (on Android it also rotates to landscape) ----------
+
+$('btn-fullscreen').hidden = !document.fullscreenEnabled;
+
+async function enterFullscreen() {
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+  } catch (e) {
+    showNotice(`Full screen isn't available here: ${e.message}`);
+    return;
+  }
+  try {
+    // Android Chrome honours this even when the phone's rotation is locked to portrait.
+    // Desktop browsers refuse it, and full screen alone is fine there.
+    await screen.orientation?.lock?.('landscape');
+  } catch {
+    // orientation lock unsupported
+  }
+}
+
+function exitFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const on = !!document.fullscreenElement;
+  document.body.classList.toggle('immersive', on);
+  $('fs-exit').hidden = !on;
+  requestAnimationFrame(() => fitValues(true));
+  if (!on) {
+    try {
+      screen.orientation?.unlock?.();
+    } catch {
+      // nothing locked
+    }
+  }
+});
+$('btn-fullscreen').addEventListener('click', enterFullscreen);
+window.addEventListener('resize', () => fitValues(true));
+$('fs-exit').addEventListener('click', exitFullscreen);
 
 // PWA (install + offline) is postponed until development is done; see PLAN.md "Later: PWA".
 // A development build briefly registered a service worker; remove it so it can't serve stale files.
@@ -424,6 +467,7 @@ function frame() {
     const wallS = epochOf(transport.now()) / 1000;
     renderWorkout(run, run && run.i >= 0 ? run.progress(v, wallS) : null, v, !!settings.referencePaceS);
     renderKnobPrompt(knobPromptView(v, wallS));
+    if (workoutDone && performance.now() > workoutDone.hideAt) workoutDone = null;
     renderWorkoutDone(workoutDone);
   }
   debug.render(view === 'debug');
@@ -553,6 +597,47 @@ if (!support.ok) {
 renderConnection('disconnected');
 showKnownRower();
 $('app-version').textContent = APP_VERSION;
+
+// ---------- full screen (on Android it also rotates to landscape) ----------
+
+$('btn-fullscreen').hidden = !document.fullscreenEnabled;
+
+async function enterFullscreen() {
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+  } catch (e) {
+    showNotice(`Full screen isn't available here: ${e.message}`);
+    return;
+  }
+  try {
+    // Android Chrome honours this even when the phone's rotation is locked to portrait.
+    // Desktop browsers refuse it, and full screen alone is fine there.
+    await screen.orientation?.lock?.('landscape');
+  } catch {
+    // orientation lock unsupported
+  }
+}
+
+function exitFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const on = !!document.fullscreenElement;
+  document.body.classList.toggle('immersive', on);
+  $('fs-exit').hidden = !on;
+  requestAnimationFrame(() => fitValues(true));
+  if (!on) {
+    try {
+      screen.orientation?.unlock?.();
+    } catch {
+      // nothing locked
+    }
+  }
+});
+$('btn-fullscreen').addEventListener('click', enterFullscreen);
+window.addEventListener('resize', () => fitValues(true));
+$('fs-exit').addEventListener('click', exitFullscreen);
 
 // PWA (install + offline) is postponed until development is done; see PLAN.md "Later: PWA".
 // A development build briefly registered a service worker; remove it so it can't serve stale files.

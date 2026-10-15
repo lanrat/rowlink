@@ -74,6 +74,7 @@
         <button id="wd-ref" class="primary" hidden></button>
       </div>
 
+      <div class="dash">
       <div class="hero">
         <div class="tile tile-pace" id="tile-pace">
           <div class="label">Pace <span class="unit">/500m</span></div>
@@ -103,20 +104,21 @@
           <div class="value" id="v-power">–</div>
           <div class="sub">avg <span id="v-avgpower">–</span></div>
         </div>
-        <div class="tile knob">
+        <div class="tile knob" id="tile-knob">
           <div class="label">Knob</div>
           <div class="knob-row">
             <button id="knob-down" class="round" aria-label="Knob down">−</button>
             <div class="value" id="v-knob">6</div>
             <button id="knob-up" class="round" aria-label="Knob up">+</button>
           </div>
-          <div class="sub">match the rower</div>
+          <div class="sub" id="knob-sub">match the rower</div>
         </div>
         <div class="tile">
           <div class="label">Calories <span class="unit">kcal</span></div>
           <div class="value" id="v-kcal">0</div>
           <div class="sub" id="v-kcal-src">from rower</div>
         </div>
+      </div>
       </div>
 
       <div id="sim-controls" class="panel" hidden>
@@ -131,7 +133,11 @@
         <button data-speed="16" aria-pressed="false">16×</button>
       </div>
 
+      <button id="fs-exit" class="fs-exit" aria-label="Exit full screen" title="Exit full screen" hidden>✕</button>
+
       <div class="actions">
+        <button id="btn-fullscreen" hidden>⛶ Full screen</button>
+        <span class="spacer"></span>
         <button id="btn-new" class="primary">Finish &amp; save</button>
         <button id="btn-disconnect">Disconnect</button>
       </div>

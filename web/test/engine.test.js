@@ -124,3 +124,30 @@ test('hard steps get the quicker smoothing', () => {
   assert.equal(isHard(steps[1]), true, '1 min on');
   assert.equal(isHard(steps[2]), false, 'easy');
 });
+
+test('the knob follows every step of a workout without any input', () => {
+  const run = new WorkoutRun(PRESETS.find((w) => w.id === 'int-10x1'), { knobOffset: -1 });
+  const knobs = [];
+  // 5 min warm-up + 10 x (1 min on + 1 min easy) + 5 min cool-down, rowed continuously
+  const log = simulate(run, { seconds: 31 * 60 });
+  for (const e of log) if (e.type === 'step') knobs.push(run.steps.find((s) => s.label === e.step).knob);
+  // preset knobs 4 / 10 / 4 ... shifted by the -1 offset
+  assert.deepEqual(knobs.slice(0, 5), [3, 9, 3, 9, 3]);
+  assert.equal(knobs.length, run.steps.length);
+  assert.ok(log.some((e) => e.type === 'done'));
+});
+
+test('skipping a step moves the knob to the next step\'s level', () => {
+  const run = new WorkoutRun({ segments: [
+    { type: 'row', durationS: 600, knob: 4, label: 'A' },
+    { type: 'rest', durationS: 60, label: 'R' },
+    { type: 'row', durationS: 60, knob: 11, label: 'B' },
+  ] });
+  const view = { state: 'active', movingS: 5, distance: 15, pace: 150, spm: 24 };
+  run.update(view, 5);
+  assert.equal(run.knob, 4);
+  run.skip(view, 6); // to the rest: knob unchanged
+  assert.equal(run.knob, 4);
+  run.skip(view, 7); // to B
+  assert.equal(run.knob, 11);
+});
