@@ -1,4 +1,4 @@
-# Rowlink
+# [Rowlink](https://lanrat.github.io/rowlink/)
 
 A web app for the **Yosuda rowing machine** (`YOSUDA-RM-*`): live dashboard, guided workouts with knob prompts, history and FIT/TCX/CSV export. It talks to the rower directly over **Web Bluetooth**, so there's nothing to install: open it in Chrome or Edge on Android, Windows, macOS, ChromeOS or Linux.
 
