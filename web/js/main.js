@@ -1,4 +1,7 @@
-import { RowerPipeline } from './pipeline/index.js';
+import { RowerPipeline, MIN_SAVE_DISTANCE_M } from './pipeline/index.js';
+import { Recorder } from './session/recorder.js';
+import { saveSession, deleteSession, finalizeInterrupted } from './storage/db.js';
+import { HistoryView } from './ui/history.js';
 import { bytesToHex } from './protocol/ftms.js';
 import { BleTransport, bluetoothSupport } from './ble/transport.js';
 import { ReplayTransport, parseCapture } from './ble/replay.js';
@@ -6,7 +9,7 @@ import { SimulatorTransport } from './ble/simulator.js';
 import { renderLive, renderConnection } from './ui/live.js';
 import { DebugView } from './ui/debug.js';
 import { loadSettings, pipelineSettings, setupSettingsDialog } from './ui/settings.js';
-import { fmtPace } from './ui/format.js';
+import { fmtPace, fmtTime, fmtDistance } from './ui/format.js';
 
 const $ = (id) => document.getElementById(id);
 const BUNDLED_CAPTURES = ['01-passive.jsonl', '02-knob.jsonl', '03-rest.jsonl', '04-chrome.jsonl', '05-chrome-sprint.jsonl'];
@@ -19,12 +22,16 @@ let deviceName = '';
 let capture = []; // raw packets + connection events, same format as captures/*.jsonl
 let view = 'live';
 let wakeLock = null;
-let notice = null; // {text, until}: short-lived message in the live banner
+let recorder = null; // the session being rowed (null until the first stroke)
+let captureStart = 0; // index in `capture` where the current session began
+const AUTOSAVE_MS = 15000;
+const history = new HistoryView(() => settings.units);
 
 // ---------- transports ----------
 
 function attach(tr) {
   transport = tr;
+  epochAnchor = null;
   capture = [];
   debug.reset();
   pipeline.reset();
@@ -33,11 +40,18 @@ function attach(tr) {
   tr.on('info', (info) => {
     deviceName = info.name ?? '';
   });
-  tr.on('ended', () => renderConnection('disconnected', '', 'Replay finished'));
+  tr.on('ended', () => {
+    renderConnection('disconnected', '', 'Replay finished');
+    finishSession();
+  });
   tr.on('packet', (pkt) => {
     capture.push({ t: round(pkt.t), c: pkt.char, hex: bytesToHex(pkt.bytes) });
     debug.onPacket(pkt, capture.length);
-    if (pipeline.packet(pkt)) debug.onSample(pkt.t, pipeline.view(pkt.t));
+    if (pipeline.packet(pkt)) {
+      const v = pipeline.view(pkt.t);
+      debug.onSample(pkt.t, v);
+      record(v, pkt.t);
+    }
     for (const ev of pipeline.takeEvents()) {
       if (ev === 'rower-reset') {
         // someone pressed reset on the rower: that session is over (M2 will save it first)
@@ -63,8 +77,59 @@ function attach(tr) {
   });
 }
 
+// ---------- sessions ----------
+
+const sourceOf = (tr) => (tr instanceof BleTransport ? 'ble' : tr instanceof SimulatorTransport ? 'simulator' : 'replay');
+// Wall-clock time of a transport timestamp, anchored at the first packet. Replays run
+// faster than real time, so their timestamps must not be read against Date.now().
+let epochAnchor = null;
+const epochOf = (t) => {
+  epochAnchor ??= { ms: Date.now(), t };
+  return epochAnchor.ms + (t - epochAnchor.t) * 1000;
+};
+const saveNonBle = () => $('save-non-ble').checked;
+const shouldSave = (rec) => rec.worthSaving && (rec.source === 'ble' || saveNonBle());
+
+function record(view, t) {
+  if (!pipeline.clock.started) return;
+  recorder ??= new Recorder({
+    startedAt: epochOf(pipeline.clock.startT),
+    source: sourceOf(transport),
+    device: deviceName,
+    kcalSource: pipeline.settings.calorieSource,
+  });
+  recorder.add(view, epochOf(t));
+}
+
+/** Save the current session if it counts (>= 20 m), then forget it. */
+function finishSession() {
+  const rec = recorder;
+  recorder = null;
+  if (!rec) return;
+  if (!shouldSave(rec)) {
+    deleteSession(rec.id).catch(() => {}); // drop any autosave
+    if (rec.worthSaving) showNotice('Not saved: simulator and replay sessions are only saved when enabled on the Debug tab.');
+    else if (rec.distance > 0) showNotice(`Not saved: sessions under ${MIN_SAVE_DISTANCE_M} m are discarded.`);
+    return;
+  }
+  const { session, data } = rec.build({ complete: true, raw: capture.slice(captureStart) });
+  const d = fmtDistance(session.summary.distanceM, settings.units);
+  saveSession(session, data)
+    .then(() => showNotice(`Saved: ${d.value} ${d.unit} in ${fmtTime(session.summary.movingS)}. See History.`))
+    .catch((e) => showNotice(`Could not save the session: ${e.message}`));
+}
+
+// Autosave so a closed tab or crash loses at most a few seconds; finalizeInterrupted() tidies up on next load.
+setInterval(() => {
+  if (!recorder || !shouldSave(recorder)) return;
+  const { session, data } = recorder.build({ complete: false });
+  saveSession(session, data).catch((e) => console.warn('Autosave failed:', e.message));
+}, AUTOSAVE_MS);
+
 /** Start a fresh session in the app and, optionally, on the rower (Reset + Start). */
 function newSession({ resetRower }) {
+  finishSession();
+  captureStart = capture.length;
   pipeline.reset();
   debug.reset();
   if (resetRower && transport?.resetSession) {
@@ -73,15 +138,34 @@ function newSession({ resetRower }) {
   }
 }
 
+let toastTimer = null;
 function showNotice(text, seconds = 8) {
-  notice = { text, until: performance.now() + seconds * 1000 };
+  const el = $('toast');
+  el.textContent = text;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, seconds * 1000);
 }
 
 function detach() {
+  finishSession();
   transport = null;
   $('connect').hidden = view !== 'live';
   $('live').hidden = true;
   renderConnection('disconnected');
+finalizeInterrupted().catch((e) => console.warn('Could not tidy interrupted sessions:', e.message));
+try {
+  $('save-non-ble').checked = localStorage.getItem('rower.saveNonBle') === '1';
+} catch {
+  // storage unavailable: default off
+}
+$('save-non-ble').addEventListener('change', (e) => {
+  try {
+    localStorage.setItem('rower.saveNonBle', e.target.checked ? '1' : '0');
+  } catch {
+    // not fatal
+  }
+});
   updateWakeLock();
 }
 
@@ -149,8 +233,7 @@ function frame() {
   if (transport) {
     const v = pipeline.view(transport.now());
     v.kcalSource = pipeline.settings.calorieSource;
-    if (notice && performance.now() > notice.until) notice = null;
-    renderLive(v, settings.units, notice?.text);
+    renderLive(v, settings.units);
   }
   debug.render(view === 'debug');
 }
@@ -162,6 +245,8 @@ function setView(name) {
   view = name;
   for (const b of document.querySelectorAll('.tabs button')) b.setAttribute('aria-selected', String(b.dataset.view === name));
   $('debug').hidden = name !== 'debug';
+  $('history').hidden = name !== 'history';
+  if (name === 'history') history.showList();
   if (transport) showLive();
   else $('connect').hidden = name !== 'live';
   if (name !== 'live') $('live').hidden = true;
@@ -172,7 +257,10 @@ for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('c
 
 $('btn-connect').addEventListener('click', connectRower);
 $('btn-sim').addEventListener('click', startSimulator);
-$('btn-disconnect').addEventListener('click', () => transport?.disconnect());
+$('btn-disconnect').addEventListener('click', () => {
+  finishSession();
+  transport?.disconnect();
+});
 $('btn-new').addEventListener('click', () => newSession({ resetRower: true }));
 $('knob-down').addEventListener('click', () => pipeline.setKnob(pipeline.knob - 1));
 $('knob-up').addEventListener('click', () => pipeline.setKnob(pipeline.knob + 1));
@@ -247,3 +335,16 @@ if (!support.ok) {
   $('btn-connect').disabled = true;
 }
 renderConnection('disconnected');
+finalizeInterrupted().catch((e) => console.warn('Could not tidy interrupted sessions:', e.message));
+try {
+  $('save-non-ble').checked = localStorage.getItem('rower.saveNonBle') === '1';
+} catch {
+  // storage unavailable: default off
+}
+$('save-non-ble').addEventListener('change', (e) => {
+  try {
+    localStorage.setItem('rower.saveNonBle', e.target.checked ? '1' : '0');
+  } catch {
+    // not fatal
+  }
+});

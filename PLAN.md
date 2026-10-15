@@ -61,10 +61,10 @@ Measured from three captures in [captures/](captures/).
 | Hosting | Any static HTTPS host (GitHub Pages / Cloudflare Pages), or `localhost` |
 | Build | **None.** Plain ES modules, open `index.html` via any static server |
 | Framework | None. Small UI, vanilla JS + CSS |
-| Libraries (vendored, for offline) | `@garmin/fitsdk` (FIT encoding), `uPlot` (charts, ~45 KB) |
+| Libraries | None shipped. FIT is written by our own small encoder (`js/export/fit.js`): Garmin's SDK license forbids redistributing it, so `@garmin/fitsdk` is a **dev-only** dependency used by the tests to decode and validate our files. Charts are plain canvas |
 | Offline | Service worker caches the app shell → installable PWA |
 | Screen | Screen Wake Lock API during sessions |
-| Storage | IndexedDB (sessions, workouts, settings) |
+| Storage | IndexedDB for sessions (`sessions` summaries + `sessionData` samples/raw packets); settings stay in localStorage |
 
 ---
 
@@ -228,8 +228,8 @@ captures/               real rower recordings (already here)
 
 | # | Deliverable | Estimate |
 |---|---|---|
-| M1 | Connect, decode, pipeline, live dashboard, replay + simulator, tests on captures | ~1 day |
-| M2 | Session recording, history with charts, FIT/TCX/CSV/JSON export | ~1 day |
+| M1 ✅ | Connect, decode, pipeline, live dashboard, replay + simulator, tests on captures | done |
+| M2 ✅ | Session recording, history with charts, FIT/TCX/CSV/JSON export, backup/restore | done |
 | M3 | Workouts: engine, knob prompts (beep + voice), presets, editor | 1–2 days |
 | M4 | PWA offline/install, wake lock, reconnection polish, settings | ~½ day |
 | M5 (optional) | Bluetooth heart-rate strap | ~½ day |

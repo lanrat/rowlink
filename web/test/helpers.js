@@ -26,3 +26,21 @@ export function replay(name, settings) {
   }
   return { pipeline: p, views };
 }
+
+/** Replay a capture into a saved-session record, as the app would after Finish. */
+export async function replayToSession(name, { startedAt = Date.UTC(2026, 9, 15, 7, 30) } = {}) {
+  const { Recorder } = await import('../js/session/recorder.js');
+  const p = new RowerPipeline();
+  p.setConnection('connected');
+  let rec = null;
+  let t0 = null;
+  for (const r of loadCapture(name)) {
+    if (r.c.startsWith('EVENT_')) continue;
+    if (!p.packet({ t: r.t, char: r.c, bytes: hexToBytes(r.hex) })) continue;
+    if (!p.clock.started) continue;
+    t0 ??= p.clock.startT;
+    rec ??= new Recorder({ startedAt, source: 'replay', device: 'YOSUDA-RM-test' });
+    rec.add(p.view(r.t), startedAt + (r.t - t0) * 1000);
+  }
+  return rec;
+}

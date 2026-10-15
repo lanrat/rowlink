@@ -14,6 +14,7 @@
     <span id="conn" class="pill" data-state="disconnected">Not connected</span>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="live" aria-selected="true">Live</button>
+      <button role="tab" data-view="history" aria-selected="false">History</button>
       <button role="tab" data-view="debug" aria-selected="false">Debug</button>
     </nav>
     <button id="open-settings" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
@@ -98,8 +99,45 @@
       </div>
 
       <div class="actions">
-        <button id="btn-new">New session</button>
+        <button id="btn-new" class="primary">Finish &amp; save</button>
         <button id="btn-disconnect">Disconnect</button>
+      </div>
+    </section>
+
+    <!-- History -->
+    <section id="history" class="history" hidden>
+      <div id="history-list-view">
+        <div class="row history-head">
+          <h2>History</h2>
+          <span class="spacer"></span>
+          <button id="history-export-all">Back up all (JSON)</button>
+          <label class="file-btn">Restore…<input id="history-import" type="file" accept=".json,application/json" hidden></label>
+        </div>
+        <p id="history-status" class="muted" aria-live="polite"></p>
+        <p id="history-empty" class="muted" hidden>No sessions yet. Rows of 20 m or more are saved here when you finish or disconnect.</p>
+        <div id="history-list" class="session-list"></div>
+      </div>
+      <div id="history-detail" hidden>
+        <div class="row history-head">
+          <button id="history-back">‹ Back</button>
+          <h2 id="history-title"></h2>
+        </div>
+        <div id="history-tiles" class="detail-grid"></div>
+        <div class="panel charts">
+          <strong>Pace</strong><canvas id="hist-chart-pace"></canvas>
+          <strong>Stroke rate</strong><canvas id="hist-chart-spm"></canvas>
+          <strong>Power</strong><canvas id="hist-chart-power"></canvas>
+          <strong>Knob</strong><canvas id="hist-chart-knob" class="short"></canvas>
+        </div>
+        <div class="actions">
+          <span class="muted">Export</span>
+          <button data-export="fit" title="Garmin Connect, Strava, most apps">FIT</button>
+          <button data-export="tcx">TCX</button>
+          <button data-export="csv">CSV</button>
+          <button data-export="json">JSON</button>
+          <span class="spacer"></span>
+          <button id="history-delete" class="danger">Delete</button>
+        </div>
       </div>
     </section>
 
@@ -119,11 +157,14 @@
           <strong>Packets</strong>
           <span class="muted" id="pkt-count">0 recorded</span>
           <button id="btn-save-capture">Save capture (.jsonl)</button>
+          <label class="muted"><input id="save-non-ble" type="checkbox"> Save simulator and replay sessions to History</label>
         </div>
         <pre id="pkt-log" class="log"></pre>
       </div>
     </section>
   </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <dialog id="settings">
     <form method="dialog" class="settings-form">

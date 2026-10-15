@@ -4,5 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/"
+  },
+  "devDependencies": {
+    "@garmin/fitsdk": "^21.218.0"
   }
 }
