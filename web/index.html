@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>Rower</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <header class="bar">
+    <span class="brand">Rower</span>
+    <span id="conn" class="pill" data-state="disconnected">Not connected</span>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-view="live" aria-selected="true">Live</button>
+      <button role="tab" data-view="debug" aria-selected="false">Debug</button>
+    </nav>
+    <button id="open-settings" class="icon-btn" aria-label="Settings" title="Settings">⚙</button>
+  </header>
+
+  <main>
+    <!-- Connect -->
+    <section id="connect" class="connect">
+      <h1>Connect your rower</h1>
+      <p class="muted">Wake the rower with a stroke, make sure no phone is connected to it, then connect.</p>
+      <button id="btn-connect" class="primary big">Connect rower</button>
+      <p id="support" class="warn" hidden></p>
+      <div class="alt">
+        <span class="muted">No rower handy?</span>
+        <button id="btn-sim">Simulator</button>
+        <select id="replay-select" aria-label="Replay a capture">
+          <option value="">Replay a capture…</option>
+        </select>
+        <label class="file-btn">Open file…<input id="replay-file" type="file" accept=".jsonl,.json,.txt" hidden></label>
+      </div>
+    </section>
+
+    <!-- Live dashboard -->
+    <section id="live" class="live" hidden>
+      <div id="banner" class="banner" hidden></div>
+
+      <div class="hero">
+        <div class="tile tile-pace">
+          <div class="label">Pace <span class="unit">/500m</span></div>
+          <div class="value" id="v-pace">–:––</div>
+          <div class="sub">avg <span id="v-avgpace">–:––</span></div>
+        </div>
+        <div class="tile">
+          <div class="label">Time</div>
+          <div class="value" id="v-time">0:00</div>
+          <div class="sub">total <span id="v-total">0:00</span></div>
+        </div>
+        <div class="tile">
+          <div class="label">Distance <span class="unit" id="u-dist">mi</span></div>
+          <div class="value" id="v-dist">0</div>
+          <div class="sub"><span id="v-strokes">0</span> strokes</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="tile">
+          <div class="label">Stroke rate <span class="unit">spm</span></div>
+          <div class="value" id="v-spm">–</div>
+          <div class="sub">avg <span id="v-avgspm">–</span></div>
+        </div>
+        <div class="tile">
+          <div class="label">Power <span class="unit">W</span></div>
+          <div class="value" id="v-power">–</div>
+          <div class="sub">avg <span id="v-avgpower">–</span></div>
+        </div>
+        <div class="tile knob">
+          <div class="label">Knob</div>
+          <div class="knob-row">
+            <button id="knob-down" class="round" aria-label="Knob down">−</button>
+            <div class="value" id="v-knob">6</div>
+            <button id="knob-up" class="round" aria-label="Knob up">+</button>
+          </div>
+          <div class="sub">match the rower</div>
+        </div>
+        <div class="tile">
+          <div class="label">Calories <span class="unit">kcal</span></div>
+          <div class="value" id="v-kcal">0</div>
+          <div class="sub" id="v-kcal-src">from rower</div>
+        </div>
+      </div>
+
+      <div id="sim-controls" class="panel" hidden>
+        <button id="sim-row" class="primary">Start rowing</button>
+        <label>Pace <input id="sim-pace" type="range" min="100" max="240" value="150"> <span id="sim-pace-v">2:30</span></label>
+        <label>Rate <input id="sim-spm" type="range" min="16" max="36" value="24"> <span id="sim-spm-v">24</span></label>
+      </div>
+      <div id="replay-controls" class="panel" hidden>
+        <span class="muted">Replay speed</span>
+        <button data-speed="1" aria-pressed="true">1×</button>
+        <button data-speed="4" aria-pressed="false">4×</button>
+        <button data-speed="16" aria-pressed="false">16×</button>
+      </div>
+
+      <div class="actions">
+        <button id="btn-new">New session</button>
+        <button id="btn-disconnect">Disconnect</button>
+      </div>
+    </section>
+
+    <!-- Debug -->
+    <section id="debug" class="debug" hidden>
+      <div class="panel">
+        <strong>Pace: rower (raw) vs shown</strong>
+        <span class="legend"><i class="sw raw"></i>raw <i class="sw smooth"></i>shown</span>
+        <canvas id="chart-pace" height="180"></canvas>
+      </div>
+      <div class="panel">
+        <strong>Power: rower (raw) vs shown</strong>
+        <canvas id="chart-power" height="140"></canvas>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <strong>Packets</strong>
+          <span class="muted" id="pkt-count">0 recorded</span>
+          <button id="btn-save-capture">Save capture (.jsonl)</button>
+        </div>
+        <pre id="pkt-log" class="log"></pre>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog" class="settings-form">
+      <h2>Settings</h2>
+      <label>Smoothing
+        <select name="smoothing">
+          <option value="low">Low: reacts fastest, jumpier (intervals)</option>
+          <option value="medium">Medium: balanced</option>
+          <option value="high">High: steadiest, slowest to react</option>
+        </select>
+      </label>
+      <label>Calories
+        <select name="calorieSource">
+          <option value="rower">From the rower</option>
+          <option value="estimate">Estimate from weight + knob + rate</option>
+        </select>
+      </label>
+      <label>Units
+        <select name="units">
+          <option value="imperial">Imperial (miles, lb)</option>
+          <option value="metric">Metric (metres, kg)</option>
+        </select>
+      </label>
+      <label><span>Body weight (<span id="u-weight">lb</span>)</span> <input name="weight" type="number" min="30" max="550" step="1"></label>
+      <label>Starting knob level <input name="defaultKnob" type="number" min="1" max="16" step="1"></label>
+      <div class="actions">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

@@ -1,0 +1,7 @@
+*.xapk
+*.apk
+PowerTrain/
+.claude/
+node_modules/
+.DS_Store
+__pycache__/
