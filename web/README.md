@@ -1,4 +1,4 @@
-# Rower web app
+# Rowlink web app
 
 Web Bluetooth app for the Yosuda rower (`YOSUDA-RM-*`). See [../PLAN.md](../PLAN.md).
 
@@ -27,6 +27,8 @@ Run `npm install` once to get `@garmin/fitsdk`, which the FIT test uses to decod
 
 | Path | What |
 |---|---|
+| `index.html`, `css/`, `icons/` | page, styles, icons (`icon.svg` is the source; PNGs kept for the later PWA) |
+| `serve.py` | dev server: no caching, and accepts `POST /captures/<name>.jsonl` to save a session capture |
 | `js/protocol/ftms.js` | FTMS packet decode/encode |
 | `js/pipeline/` | assembler (2 packets → 1 Hz frame), sanitize (glitches, counters), metrics (smoothing), index (pipeline + view) |
 | `js/session/clock.js` | total vs moving time |

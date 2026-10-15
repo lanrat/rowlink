@@ -1,6 +1,6 @@
 import { RowerPipeline, MIN_SAVE_DISTANCE_M } from './pipeline/index.js';
 import { Recorder } from './session/recorder.js';
-import { saveSession, deleteSession, finalizeInterrupted } from './storage/db.js';
+import { saveSession, deleteSession, finalizeInterrupted, eraseAllData } from './storage/db.js';
 import { HistoryView } from './ui/history.js';
 import { bytesToHex } from './protocol/ftms.js';
 import { BleTransport, bluetoothSupport } from './ble/transport.js';
@@ -14,6 +14,8 @@ import { DebugView } from './ui/debug.js';
 import { loadSettings, saveSettings, pipelineSettings, setupSettingsDialog, SMOOTHING } from './ui/settings.js';
 import { fmtPace, fmtTime, fmtDistance } from './ui/format.js';
 
+const APP_VERSION = '0.4.0';
+const LAST_DEVICE_KEY = 'rower.lastDevice';
 const $ = (id) => document.getElementById(id);
 const BUNDLED_CAPTURES = ['01-passive.jsonl', '02-knob.jsonl', '03-rest.jsonl', '04-chrome.jsonl', '05-chrome-sprint.jsonl'];
 
@@ -50,6 +52,7 @@ function attach(tr) {
 
   tr.on('info', (info) => {
     deviceName = info.name ?? '';
+    if (tr instanceof BleTransport && deviceName) storageSet(LAST_DEVICE_KEY, deviceName);
   });
   tr.on('ended', () => {
     renderConnection('disconnected', '', 'Replay finished');
@@ -75,6 +78,8 @@ function attach(tr) {
   let started = false;
   tr.on('state', (state) => {
     pipeline.setConnection(state);
+    if (state === 'reconnecting') lostAt ??= performance.now();
+    if (state === 'connected') lostAt = null;
     const event = { connected: 'EVENT_CONNECTED', reconnecting: 'EVENT_DISCONNECTED' }[state];
     if (event) capture.push({ t: round(tr.now()), c: event, hex: '' });
     if (state === 'disconnected' && transport === tr) detach();
@@ -253,6 +258,39 @@ function knobPromptView(v, wallS) {
   return { knob: knobPrompt.knob, when: 'now' };
 }
 
+let lostAt = null; // performance.now() when the connection dropped
+
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // not fatal
+  }
+}
+
+/** Connect screen: name the rower used last, and offer a picker-free reconnect if the browser allows it. */
+async function showKnownRower() {
+  const last = storageGet(LAST_DEVICE_KEY);
+  $('last-device').hidden = !last;
+  if (last) $('last-device').textContent = `Last used: ${last}`;
+  if (!navigator.bluetooth?.getDevices) return;
+  try {
+    const known = (await navigator.bluetooth.getDevices()).find((d) => d.name?.startsWith('YOSUDA-RM') || d.name?.startsWith('YSD-RM'));
+    $('btn-reconnect').hidden = !known;
+    if (known) $('btn-reconnect').textContent = `Reconnect ${known.name} (no picker)`;
+  } catch {
+    // permissions API unavailable: the normal Connect button still works
+  }
+}
+
 let toastTimer = null;
 function showNotice(text, seconds = 8) {
   const el = $('toast');
@@ -265,10 +303,38 @@ function showNotice(text, seconds = 8) {
 function detach() {
   endWorkout();
   finishSession();
+  lostAt = null;
+  showKnownRower();
   transport = null;
   $('connect').hidden = view !== 'live';
   $('live').hidden = true;
   renderConnection('disconnected');
+showKnownRower();
+$('app-version').textContent = APP_VERSION;
+
+// PWA (install + offline) is postponed until development is done; see PLAN.md "Later: PWA".
+// A development build briefly registered a service worker; remove it so it can't serve stale files.
+navigator.serviceWorker?.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
+globalThis.caches?.keys().then((keys) => keys.filter((k) => k.startsWith('rower-')).forEach((k) => caches.delete(k))).catch(() => {});
+
+navigator.bluetooth?.addEventListener?.('availabilitychanged', (e) => {
+  if (!e.value) showNotice('Bluetooth is turned off. Turn it on to connect to the rower.');
+});
+
+// two-step erase, no confirm() dialog
+let eraseArmedUntil = 0;
+$('btn-erase').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (performance.now() > eraseArmedUntil) {
+    eraseArmedUntil = performance.now() + 4000;
+    btn.textContent = 'Tap again to erase everything';
+    setTimeout(() => { if (performance.now() > eraseArmedUntil) btn.textContent = 'Erase all data'; }, 4100);
+    return;
+  }
+  await eraseAllData();
+  location.reload();
+});
+
 finalizeInterrupted().catch((e) => console.warn('Could not tidy interrupted sessions:', e.message));
 try {
   $('save-non-ble').checked = localStorage.getItem('rower.saveNonBle') === '1';
@@ -294,11 +360,15 @@ function showLive() {
 
 const round = (t) => Math.round(t * 1000) / 1000;
 
-async function connectRower() {
+async function connectRower({ known = false } = {}) {
   const tr = new BleTransport();
   attach(tr);
   try {
-    await tr.connect();
+    if (known) {
+      if (!(await tr.connectKnown())) throw new Error('rower not found; use Connect rower');
+    } else {
+      await tr.connect();
+    }
   } catch (e) {
     if (transport === tr) detach();
     if (e.name !== 'NotFoundError') showSupport(`Could not connect: ${e.message}`); // NotFoundError = picker cancelled
@@ -349,6 +419,7 @@ function frame() {
   if (transport) {
     const v = pipeline.view(transport.now());
     v.kcalSource = pipeline.settings.calorieSource;
+    v.lostS = lostAt != null ? (performance.now() - lostAt) / 1000 : null;
     renderLive(v, settings.units);
     const wallS = epochOf(transport.now()) / 1000;
     renderWorkout(run, run && run.i >= 0 ? run.progress(v, wallS) : null, v, !!settings.referencePaceS);
@@ -380,7 +451,8 @@ function setView(name) {
 
 for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('click', () => setView(b.dataset.view));
 
-$('btn-connect').addEventListener('click', connectRower);
+$('btn-connect').addEventListener('click', () => connectRower());
+$('btn-reconnect').addEventListener('click', () => connectRower({ known: true }));
 $('btn-sim').addEventListener('click', startSimulator);
 $('wk-skip').addEventListener('click', () => {
   if (!run || !transport) return;
@@ -412,7 +484,10 @@ replaySelect.addEventListener('change', async () => {
   replaySelect.value = '';
   if (!name) return;
   try {
-    const res = await fetch(`../captures/${name}`);
+    // deployed: captures/ sits next to the app; in the repo it's one level up (web/../captures)
+    const places = /\/web\/(index\.html)?$/.test(location.pathname) ? ['../captures', 'captures'] : ['captures', '../captures'];
+    let res = await fetch(`${places[0]}/${name}`).catch(() => null);
+    if (!res?.ok) res = await fetch(`${places[1]}/${name}`);
     if (!res.ok) throw new Error(res.statusText);
     startReplay(await res.text());
   } catch (e) {
@@ -476,6 +551,32 @@ if (!support.ok) {
   $('btn-connect').disabled = true;
 }
 renderConnection('disconnected');
+showKnownRower();
+$('app-version').textContent = APP_VERSION;
+
+// PWA (install + offline) is postponed until development is done; see PLAN.md "Later: PWA".
+// A development build briefly registered a service worker; remove it so it can't serve stale files.
+navigator.serviceWorker?.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
+globalThis.caches?.keys().then((keys) => keys.filter((k) => k.startsWith('rower-')).forEach((k) => caches.delete(k))).catch(() => {});
+
+navigator.bluetooth?.addEventListener?.('availabilitychanged', (e) => {
+  if (!e.value) showNotice('Bluetooth is turned off. Turn it on to connect to the rower.');
+});
+
+// two-step erase, no confirm() dialog
+let eraseArmedUntil = 0;
+$('btn-erase').addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  if (performance.now() > eraseArmedUntil) {
+    eraseArmedUntil = performance.now() + 4000;
+    btn.textContent = 'Tap again to erase everything';
+    setTimeout(() => { if (performance.now() > eraseArmedUntil) btn.textContent = 'Erase all data'; }, 4100);
+    return;
+  }
+  await eraseAllData();
+  location.reload();
+});
+
 finalizeInterrupted().catch((e) => console.warn('Could not tidy interrupted sessions:', e.message));
 try {
   $('save-non-ble').checked = localStorage.getItem('rower.saveNonBle') === '1';

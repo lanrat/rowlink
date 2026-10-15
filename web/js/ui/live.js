@@ -10,7 +10,10 @@ function set(id, text) {
 
 function bannerFor(view, notice) {
   if (notice) return { text: notice };
-  if (view.connection === 'reconnecting') return { text: 'Connection lost. Reconnecting… keep rowing, nothing is lost.', kind: 'warn' };
+  if (view.connection === 'reconnecting') {
+    const ago = view.lostS != null ? ` (${fmtTime(view.lostS)})` : '';
+    return { text: `Connection lost${ago}. Reconnecting… keep rowing, nothing is lost.`, kind: 'warn' };
+  }
   if (view.connection === 'connecting') return { text: 'Connecting…' };
   if (view.state === 'idle') return { text: 'Take a stroke to start' };
   if (view.state === 'paused') return { text: 'Paused. Row to resume' };

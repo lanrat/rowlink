@@ -104,6 +104,23 @@ export function deleteWorkout(id) {
   return tx(['workouts'], 'readwrite', (w) => w.delete(id));
 }
 
+/** Delete all sessions, workouts and settings in this browser. */
+export async function eraseAllData() {
+  const db = await open();
+  db.close();
+  dbPromise = null;
+  await new Promise((resolve, reject) => {
+    const r = indexedDB.deleteDatabase(DB_NAME);
+    r.onsuccess = r.onblocked = () => resolve();
+    r.onerror = () => reject(r.error);
+  });
+  try {
+    for (const key of Object.keys(localStorage)) if (key.startsWith('rower.')) localStorage.removeItem(key);
+  } catch {
+    // storage unavailable
+  }
+}
+
 /** Everything, as one JSON-able object. */
 export async function exportAll() {
   const sessions = await listSessions();

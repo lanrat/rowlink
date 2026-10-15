@@ -4,13 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0f1115">
-  <title>Rower</title>
+  <meta name="description" content="Live dashboard, workouts and history for the Yosuda rowing machine, over Web Bluetooth.">
+  <title>Rowlink</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="stylesheet" href="css/app.css">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
   <header class="bar">
-    <span class="brand">Rower</span>
+    <span class="brand">Rowlink</span>
     <span id="conn" class="pill" data-state="disconnected">Not connected</span>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="live" aria-selected="true">Live</button>
@@ -28,6 +30,8 @@
       <p class="muted">Wake the rower with a stroke, make sure no phone is connected to it, then connect.</p>
       <p id="pending-workout" class="pending" hidden></p>
       <button id="btn-connect" class="primary big">Connect rower</button>
+      <p id="last-device" class="muted" hidden></p>
+      <button id="btn-reconnect" hidden></button>
       <p id="support" class="warn" hidden></p>
       <div class="alt">
         <span class="muted">No rower handy?</span>
@@ -259,6 +263,10 @@
       <div class="actions">
         <button value="cancel" formnovalidate>Cancel</button>
         <button value="save" class="primary">Save</button>
+      </div>
+      <div class="about">
+        <button type="button" id="btn-erase" class="danger">Erase all data</button>
+        <p class="muted">Rowlink <span id="app-version"></span>. Your sessions, workouts and settings stay in this browser.</p>
       </div>
     </form>
   </dialog>

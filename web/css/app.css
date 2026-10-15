@@ -238,6 +238,9 @@ dialog {
 }
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 .settings-form h2 { margin-top: 0; }
+.about { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.about p { margin: 0.3rem 0 0; flex-basis: 100%; font-size: 0.85rem; }
+#btn-reconnect { margin-top: 0.8rem; }
 .settings-form label { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; color: var(--muted); }
 .settings-form input, .settings-form select {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 0.5em 0.7em; color: var(--text);

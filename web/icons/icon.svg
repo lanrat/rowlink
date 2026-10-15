@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rower app icon: flywheel, rail, chain and seat. Drawn inside the maskable safe zone. -->
+  <rect width="512" height="512" rx="112" fill="#0f1115"/>
+  <line x1="112" y1="356" x2="408" y2="356" stroke="#3d9bff" stroke-width="30" stroke-linecap="round"/>
+  <circle cx="168" cy="248" r="72" fill="none" stroke="#3d9bff" stroke-width="30"/>
+  <line x1="168" y1="248" x2="352" y2="226" stroke="#eef1f5" stroke-width="16" stroke-linecap="round"/>
+  <rect x="300" y="306" width="96" height="34" rx="12" fill="#eef1f5"/>
+</svg>

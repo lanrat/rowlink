@@ -1,4 +1,4 @@
-# Yosuda Rower Web App — Plan (draft for review)
+# Rowlink: Yosuda rower web app — plan
 
 Static HTML/JS web app that talks to the Yosuda rower (`YOSUDA-RM-*`) over Web Bluetooth and replaces both the FED Fitness app and PowerTrain.
 
@@ -62,7 +62,7 @@ Measured from three captures in [captures/](captures/).
 | Build | **None.** Plain ES modules, open `index.html` via any static server |
 | Framework | None. Small UI, vanilla JS + CSS |
 | Libraries | None shipped. FIT is written by our own small encoder (`js/export/fit.js`): Garmin's SDK license forbids redistributing it, so `@garmin/fitsdk` is a **dev-only** dependency used by the tests to decode and validate our files. Charts are plain canvas |
-| Offline | Service worker caches the app shell → installable PWA |
+| Offline | **Postponed** until development is done: see [Later: PWA](#later-pwa) |
 | Screen | Screen Wake Lock API during sessions |
 | Storage | IndexedDB for sessions (`sessions` summaries + `sessionData` samples/raw packets); settings stay in localStorage |
 
@@ -231,7 +231,7 @@ captures/               real rower recordings (already here)
 | M1 ✅ | Connect, decode, pipeline, live dashboard, replay + simulator, tests on captures | done |
 | M2 ✅ | Session recording, history with charts, FIT/TCX/CSV/JSON export, backup/restore | done |
 | M3 ✅ | Workouts: engine, knob prompts (beeps), 13 presets, editor, per-step FIT laps, quicker smoothing in hard intervals | done |
-| M4 | PWA offline/install, wake lock, reconnection polish, settings | ~½ day |
+| M4 ✅ | Reconnect timer, last-device hint, picker-free reconnect where supported, Bluetooth-off notice, erase-all-data, app icons, GitHub Pages workflow. PWA postponed (see below) | done |
 | M5 (optional) | Bluetooth heart-rate strap | ~½ day |
 
 Each milestone ends usable: after M1 you can row with a non-jumpy display.
@@ -242,7 +242,7 @@ Each milestone ends usable: after M1 you can row with a non-jumpy display.
 
 | Topic | Decision |
 |---|---|
-| Hosting | Local (`localhost`) for now; GitHub Pages later via an Actions workflow that publishes `web/` |
+| Hosting | Local (`localhost`) for now. `.github/workflows/pages.yml` runs the tests and publishes the app files (plus `captures/` for Replay) to GitHub Pages once the repo exists |
 | Heart rate | Later (M5) |
 | Prompts | **Beep only** for now (drop `speechSynthesis` from 4.6) |
 | Calories | **Both**, selectable in Settings: (a) rower's kcal, (b) estimate from body weight + knob + stroke rate (see 10.3) |
@@ -286,3 +286,18 @@ Taken from the FED app's own fallback formula (`RowerDataCompat.getMETs`):
 | Technique | 4 × (1 min @ 18, 20, 22, 24 spm) ladder |
 
 Each preset: 5 min warm-up + main set + 5 min cool-down unless it's a test.
+
+---
+
+## Later: PWA
+
+Postponed until development is done, so a cached copy never hides a fresh change. A first, network-first version was built and removed: it could serve files up to 10 min stale (GitHub Pages sends `max-age=600`), mix old and new modules when the network was slow, and never update an installed app that stayed open. The app now unregisters any service worker left from that build (`main.js`; remove that cleanup when the PWA comes back).
+
+When it comes back, use this design:
+
+1. **Versioned service worker.** The Pages workflow stamps the commit SHA into `sw.js` (`rower-dev` → `rower-<sha>`), so every deploy is a new worker that precaches the complete file set into a fresh cache (requests with `cache: 'reload'` to bypass the HTTP cache) and swaps atomically. Register with `updateViaCache: 'none'`.
+2. **Cache-first from the current version's cache**, so each page load is one consistent version, instant and offline-capable. Unstamped (`rower-dev`, local development): network-first or no caching.
+3. **Update checks** on launch, on returning to the app (`visibilitychange`), and every 30 min (`registration.update()`).
+4. **Auto mode (decided):** when a new version is ready and no session is in progress, reload into it automatically and show "Updated to <sha>". While rowing, show "Update ready" and apply after Finish or Disconnect. Never reload mid-row.
+5. Show the build SHA in Settings.
+6. Also: `manifest.webmanifest` (name, `start_url`/`scope` `./`, standalone, theme `#0f1115`, the icons in `web/icons/` incl. maskable), an "Install as an app" button via `beforeinstallprompt`, and a test that the precache list covers every file the app loads.
