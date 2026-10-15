@@ -1,6 +1,7 @@
 // Small canvas line chart for session detail. x = seconds, y = values (nulls break the line).
 
-export function drawLineChart(canvas, xs, ys, { invert = false, step = false, fmt = (v) => String(Math.round(v)), xFmt = (s) => `${Math.round(s / 60)}m`, color } = {}) {
+/** bands: optional [{x0, x1, lo, hi}] target ranges, shaded behind the line */
+export function drawLineChart(canvas, xs, ys, { invert = false, step = false, fmt = (v) => String(Math.round(v)), xFmt = (s) => `${Math.round(s / 60)}m`, color, bands = [] } = {}) {
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
@@ -24,6 +25,10 @@ export function drawLineChart(canvas, xs, ys, { invert = false, step = false, fm
   // ignore the extreme 2% so one outlier doesn't flatten the chart
   let lo = sorted[Math.floor(sorted.length * 0.02)];
   let hi = sorted[Math.ceil(sorted.length * 0.98) - 1];
+  for (const b of bands) {
+    lo = Math.min(lo, b.lo);
+    hi = Math.max(hi, b.hi);
+  }
   if (hi === lo) { lo -= 1; hi += 1; }
   const pad = (hi - lo) * 0.08;
   const min = lo - pad;
@@ -37,6 +42,14 @@ export function drawLineChart(canvas, xs, ys, { invert = false, step = false, fm
     const f = Math.min(1, Math.max(0, (v - min) / (max - min)));
     return 4 + (invert ? f : 1 - f) * (h - 8 - bottom);
   };
+
+  ctx.fillStyle = css.getPropertyValue('--good');
+  ctx.globalAlpha = 0.16;
+  for (const b of bands) {
+    const top = Math.min(y(b.lo), y(b.hi));
+    ctx.fillRect(x(b.x0), top, Math.max(1, x(b.x1) - x(b.x0)), Math.abs(y(b.hi) - y(b.lo)));
+  }
+  ctx.globalAlpha = 1;
 
   ctx.font = '11px system-ui, sans-serif';
   ctx.lineWidth = 1;

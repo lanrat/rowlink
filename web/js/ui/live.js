@@ -1,5 +1,6 @@
 // Live dashboard rendering. Called ~4x per second with pipeline.view().
 import { fmtPace, fmtTime, fmtInt, fmtDistance } from './format.js';
+import { buildTimeline, updateTimeline } from './timeline.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,7 +22,7 @@ function bannerFor(view, notice) {
 }
 
 // In full screen the numbers are sized to the tile height; shrink any that are too wide.
-const FIT_IDS = ['v-pace', 'v-time', 'v-dist', 'v-spm', 'v-power', 'v-knob', 'v-kcal'];
+const FIT_IDS = ['v-pace', 'v-time', 'v-dist', 'v-power', 'v-knob', 'v-kcal']; // stroke rate lives in the gauge SVG, which scales itself
 let fitKey = '';
 
 export function fitValues(force = false) {
@@ -106,15 +107,32 @@ function stepSummary(s) {
   return `${s.type === 'rest' ? 'Rest' : s.label} ${s.type === 'rest' || s.label?.includes(len) ? '' : len}${knob}`.replace(/\s+/g, ' ').trim();
 }
 
-/** @param run WorkoutRun or null; @param p run.progress() or null before the first stroke */
-export function renderWorkout(run, p, view, hasReference) {
+let timelineFor = null; // the run whose steps are drawn in the timeline
+
+/**
+ * @param run WorkoutRun or null
+ * @param p run.progress() or null before the first stroke
+ * @param o.referencePaceS for pace targets and for estimating distance steps' time
+ * @param o.overall run.overall(): {fraction, remainingS}
+ */
+export function renderWorkout(run, p, view, { referencePaceS, overall }) {
+  const hasReference = !!referencePaceS;
   const panel = $('workout-panel');
   panel.hidden = !run;
   // the workout sets the knob at every step, so there's nothing to press
   $('tile-knob').classList.toggle('auto', !!run);
   set('knob-sub', run ? 'set by workout' : 'match the rower');
   for (const id of ['tile-pace', 'tile-spm']) delete $(id).dataset.target;
-  if (!run) return;
+  if (!run) {
+    timelineFor = null;
+    return;
+  }
+  if (timelineFor !== run) {
+    buildTimeline($('wk-timeline'), run.steps, referencePaceS ?? 150, { marker: true });
+    timelineFor = run;
+  }
+  updateTimeline($('wk-timeline'), run.i, overall.fraction);
+  set('wk-total', `Total ${fmtTime(view.totalS)} · about ${fmtTime(Math.ceil(overall.remainingS))} left`);
   const total = run.steps.length;
   set('wk-name', run.workout.name);
   if (run.i < 0) {
@@ -122,7 +140,6 @@ export function renderWorkout(run, p, view, hasReference) {
     set('wk-remaining', 'Ready');
     set('wk-targets', targetsText(run.next, hasReference));
     set('wk-next', 'Starts on your first stroke.');
-    $('wk-bar-step').style.width = '0%';
     return;
   }
   const step = run.step;
@@ -130,7 +147,6 @@ export function renderWorkout(run, p, view, hasReference) {
   set('wk-remaining', remainingText(p));
   set('wk-targets', targetsText(step, hasReference));
   set('wk-next', run.next ? `Next: ${stepSummary(run.next)}` : 'Last step');
-  $('wk-bar-step').style.width = `${Math.min(100, Math.max(0, (p.elapsed / p.total) * 100)).toFixed(1)}%`;
   const ts = run.targetStatus(view);
   if (ts.pace) $('tile-pace').dataset.target = ts.pace === 'ok' ? 'ok' : 'off';
   if (ts.spm) $('tile-spm').dataset.target = ts.spm === 'ok' ? 'ok' : 'off';
@@ -151,6 +167,7 @@ export function renderWorkoutDone(done) {
   if (!done) return;
   set('wd-title', `${done.name}: complete`);
   set('wd-text', done.text);
+  set('wd-targets', done.targets ?? '');
   const ref = $('wd-ref');
   ref.hidden = !done.refPaceS;
   if (done.refPaceS) set('wd-ref', `Use ${fmtPace(done.refPaceS)} /500m as my reference pace`);

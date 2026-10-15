@@ -64,13 +64,15 @@
           <div class="wk-remaining" id="wk-remaining"></div>
           <div class="wk-targets" id="wk-targets"></div>
         </div>
-        <div class="wk-bar" aria-hidden="true"><div id="wk-bar-step"></div></div>
+        <div class="wk-total muted" id="wk-total"></div>
+        <div class="wk-timeline" id="wk-timeline" aria-hidden="true"></div>
         <div class="wk-next muted" id="wk-next"></div>
       </div>
 
       <div id="workout-done" class="workout done" hidden>
         <div class="wk-head"><strong id="wd-title">Workout complete</strong><span class="spacer"></span><button id="wd-close">Close</button></div>
         <p id="wd-text" class="muted"></p>
+        <p id="wd-targets"></p>
         <button id="wd-ref" class="primary" hidden></button>
       </div>
 
@@ -79,7 +81,8 @@
         <div class="tile tile-pace" id="tile-pace">
           <div class="label">Pace <span class="unit">/500m</span></div>
           <div class="value" id="v-pace">–:––</div>
-          <div class="sub">avg <span id="v-avgpace">–:––</span></div>
+          <canvas id="pace-chart" class="mini-chart" aria-hidden="true"></canvas>
+          <div class="sub">avg <span id="v-avgpace">–:––</span> <span class="chart-key"><i class="key-pace"></i>pace <i class="key-rate"></i>rate</span></div>
         </div>
         <div class="tile">
           <div class="label">Time</div>
@@ -96,7 +99,14 @@
       <div class="grid">
         <div class="tile" id="tile-spm">
           <div class="label">Stroke rate <span class="unit">spm</span></div>
-          <div class="value" id="v-spm">–</div>
+          <svg id="spm-gauge" class="gauge" viewBox="0 0 200 118" role="img" aria-label="Stroke rate gauge">
+            <path class="g-track" d=""/>
+            <path class="g-target" d=""/>
+            <line class="g-needle" x1="100" y1="100" x2="100" y2="20"/>
+            <text id="v-spm" class="g-value" x="100" y="100" text-anchor="middle">–</text>
+            <text class="g-min" x="20" y="116" text-anchor="middle"></text>
+            <text class="g-max" x="180" y="116" text-anchor="middle"></text>
+          </svg>
           <div class="sub">avg <span id="v-avgspm">–</span></div>
         </div>
         <div class="tile">
@@ -191,8 +201,18 @@
           <h2 id="history-title"></h2>
         </div>
         <div id="history-tiles" class="detail-grid"></div>
+        <div id="history-targets" class="panel targets" hidden>
+          <div class="row"><strong>Targets</strong><span class="muted" id="ht-note"></span></div>
+          <div class="target-summary" id="ht-summary"></div>
+          <div class="table-scroll">
+            <table class="target-table">
+              <thead><tr><th>Step</th><th>Pace target</th><th>Avg pace</th><th>On target</th><th>Rate target</th><th>Avg rate</th><th>On target</th></tr></thead>
+              <tbody id="ht-rows"></tbody>
+            </table>
+          </div>
+        </div>
         <div class="panel charts">
-          <strong>Pace</strong><canvas id="hist-chart-pace"></canvas>
+          <strong>Pace <span class="muted band-key" id="band-key" hidden>· green bands are the targets</span></strong><canvas id="hist-chart-pace"></canvas>
           <strong>Stroke rate</strong><canvas id="hist-chart-spm"></canvas>
           <strong>Power</strong><canvas id="hist-chart-power"></canvas>
           <strong>Knob</strong><canvas id="hist-chart-knob" class="short"></canvas>

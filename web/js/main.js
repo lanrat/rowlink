@@ -8,6 +8,8 @@ import { ReplayTransport, parseCapture } from './ble/replay.js';
 import { SimulatorTransport } from './ble/simulator.js';
 import { renderLive, renderConnection, renderWorkout, renderKnobPrompt, renderWorkoutDone, fitValues } from './ui/live.js';
 import { WorkoutRun, isHard } from './workout/engine.js';
+import { targetResults } from './session/targets.js';
+import { drawRolling, setupGauge, updateGauge, ROLLING_S } from './ui/livecharts.js';
 import { sound, unlockAudio, setSoundEnabled } from './workout/sound.js';
 import { WorkoutsView } from './ui/workouts.js';
 import { DebugView } from './ui/debug.js';
@@ -36,7 +38,8 @@ const history = new HistoryView(() => settings.units);
 let run = null; // WorkoutRun being rowed
 let pendingWorkout = null; // chosen before the rower was connected
 let knobPrompt = null; // {knob, initial?, hideAt?}
-let workoutDone = null; // {name, text, refPaceS} shown after a workout ends
+let workoutDone = null; // {name, text, targets, refPaceS} shown after a workout ends
+let series = []; // last few minutes of {t, pace, spm} for the rolling chart
 const workouts = new WorkoutsView(() => settings, startWorkout);
 setSoundEnabled(settings.sounds);
 
@@ -65,6 +68,8 @@ function attach(tr) {
       const v = pipeline.view(pkt.t);
       debug.onSample(pkt.t, v);
       if (run) onWorkoutEvents(run.update(v, epochOf(pkt.t) / 1000), epochOf(pkt.t) / 1000);
+      series.push({ t: pkt.t, pace: v.pace, spm: v.spm });
+      while (series.length && series[0].t < pkt.t - ROLLING_S - 5) series.shift();
       record(v, pkt.t);
     }
     for (const ev of pipeline.takeEvents()) {
@@ -121,7 +126,9 @@ function record(view, t) {
     recorder.workout = {
       id: run.workout.id,
       name: run.workout.name,
-      steps: run.steps.map(({ label, type, intensity, durationS, distanceM, knob }) => ({ label, type, intensity, durationS, distanceM, knob })),
+      steps: run.steps.map(({ label, type, intensity, durationS, distanceM, knob, spm, pacePct, paceRange }) => ({
+        label, type, intensity, durationS, distanceM, knob, spm, pacePct, paceRange,
+      })),
     };
   }
   recorder.add(view, epochOf(t), run && run.i >= 0 && !run.done ? run.i : undefined);
@@ -156,6 +163,7 @@ setInterval(() => {
 function newSession({ resetRower }) {
   finishSession();
   captureStart = capture.length;
+  series = [];
   pipeline.reset();
   debug.reset();
   if (resetRower && transport?.resetSession) {
@@ -238,10 +246,15 @@ function completeWorkout() {
   const refPaceS = w.benchmark ? benchmarkPace(recorder, run) : null;
   const d = fmtDistance(recorder?.distance ?? 0, settings.units);
   const text = `${d.value} ${d.unit} in ${fmtTime(pipeline.clock.movingNow(transport.now()))}.${refPaceS ? ` Average pace ${fmtPace(refPaceS)} /500m.` : ''}`;
+  const tr = recorder?.workout ? targetResults(recorder.workout.steps, recorder.samples) : null;
+  const pct = (x) => `${Math.round(x.onPct)}%`;
+  const targets = tr && (tr.pace || tr.spm)
+    ? `On target: ${[tr.pace && `pace ${pct(tr.pace)}`, tr.spm && `rate ${pct(tr.spm)}`].filter(Boolean).join(', ')} of the time. Details in History.`
+    : null;
   endWorkout();
   newSession({ resetRower: true }); // saves the workout session
   // closes itself so nothing needs a tap; a reference-pace offer stays up a little longer
-  workoutDone = { name: w.name, text, refPaceS, hideAt: performance.now() + (refPaceS ? 60000 : 30000) };
+  workoutDone = { name: w.name, text, targets, refPaceS, hideAt: performance.now() + (refPaceS ? 60000 : 30000) };
 }
 
 function knobPromptView(v, wallS) {
@@ -312,6 +325,7 @@ function detach() {
   $('live').hidden = true;
   renderConnection('disconnected');
 showKnownRower();
+setupGauge($('spm-gauge'));
 $('app-version').textContent = APP_VERSION;
 
 // ---------- full screen (on Android it also rotates to landscape) ----------
@@ -465,7 +479,14 @@ function frame() {
     v.lostS = lostAt != null ? (performance.now() - lostAt) / 1000 : null;
     renderLive(v, settings.units);
     const wallS = epochOf(transport.now()) / 1000;
-    renderWorkout(run, run && run.i >= 0 ? run.progress(v, wallS) : null, v, !!settings.referencePaceS);
+    const paceS = settings.referencePaceS ?? v.avgPace ?? 150; // for estimating distance steps' time
+    renderWorkout(run, run && run.i >= 0 ? run.progress(v, wallS) : null, v, {
+      referencePaceS: settings.referencePaceS,
+      overall: run ? run.overall(v, wallS, paceS) : null,
+    });
+    const rowStep = run?.step?.type === 'row' ? run.step : null;
+    updateGauge($('spm-gauge'), v.spm, rowStep?.spm ?? null, rowStep ? run.targetStatus(v).spm : null);
+    drawRolling($('pace-chart'), series, transport.now(), rowStep?.paceRange ?? null);
     renderKnobPrompt(knobPromptView(v, wallS));
     if (workoutDone && performance.now() > workoutDone.hideAt) workoutDone = null;
     renderWorkoutDone(workoutDone);
@@ -596,6 +617,7 @@ if (!support.ok) {
 }
 renderConnection('disconnected');
 showKnownRower();
+setupGauge($('spm-gauge'));
 $('app-version').textContent = APP_VERSION;
 
 // ---------- full screen (on Android it also rotates to landscape) ----------

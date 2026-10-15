@@ -3,6 +3,7 @@ import { PRESETS } from '../workout/presets.js';
 import { flatten, plannedDurationS, plannedDistanceM } from '../workout/engine.js';
 import { listWorkouts, saveWorkout, deleteWorkout } from '../storage/db.js';
 import { fmtTime, fmtPace } from './format.js';
+import { buildTimeline } from './timeline.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, attrs = {}, ...children) => {
@@ -71,8 +72,11 @@ export class WorkoutsView {
 
   card(w, own) {
     const ref = this.getSettings().referencePaceS;
+    const preview = el('div', { class: 'wk-timeline', 'aria-hidden': 'true' });
+    buildTimeline(preview, flatten(w), ref ?? 150);
     return el('div', { class: 'wo-card' },
       el('h3', {}, w.name),
+      preview,
       w.description ? el('div', { class: 'meta' }, w.description) : null,
       el('div', { class: 'meta' }, describe(w, ref)),
       el('div', { class: 'actions' },

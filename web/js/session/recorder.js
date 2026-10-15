@@ -2,6 +2,7 @@
 // Pure: no browser APIs, so exports can be tested in Node.
 
 import { MIN_SAVE_DISTANCE_M } from '../pipeline/index.js';
+import { targetResults } from './targets.js';
 
 export const SESSION_VERSION = 1;
 
@@ -67,6 +68,7 @@ export class Recorder {
       return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
     };
     const knobs = [...new Set(this.samples.map((s) => s.n))];
+    const targets = this.workout ? targetResults(this.workout.steps, this.samples) : null;
     const session = {
       id: this.id,
       version: SESSION_VERSION,
@@ -90,6 +92,8 @@ export class Recorder {
         maxSpm: max('r'),
         bestPaceS: active.reduce((m, s) => (s.p != null && (m == null || s.p < m) ? s.p : m), null),
         knobs,
+        // % of scored time on target, for the History list (details are recomputed from the samples)
+        ...(targets ? { targets: { pacePct: r0(targets.pace?.onPct), spmPct: r0(targets.spm?.onPct) } } : {}),
       },
     };
     return { session, data: { id: this.id, samples: this.samples, raw } };
