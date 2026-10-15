@@ -55,6 +55,12 @@ export class RowerPipeline {
     return e;
   }
 
+  /** Swap smoothing windows without restarting the session. */
+  setSmoothing(smoothing) {
+    Object.assign(this.settings, smoothing);
+    this.metrics.setSmoothing(smoothing);
+  }
+
   setKnob(level) {
     this.knob = Math.min(this.settings.maxKnob, Math.max(1, Math.round(level)));
   }

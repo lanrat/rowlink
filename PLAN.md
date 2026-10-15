@@ -230,7 +230,7 @@ captures/               real rower recordings (already here)
 |---|---|---|
 | M1 ✅ | Connect, decode, pipeline, live dashboard, replay + simulator, tests on captures | done |
 | M2 ✅ | Session recording, history with charts, FIT/TCX/CSV/JSON export, backup/restore | done |
-| M3 | Workouts: engine, knob prompts (beep + voice), presets, editor | 1–2 days |
+| M3 ✅ | Workouts: engine, knob prompts (beeps), 13 presets, editor, per-step FIT laps, quicker smoothing in hard intervals | done |
 | M4 | PWA offline/install, wake lock, reconnection polish, settings | ~½ day |
 | M5 (optional) | Bluetooth heart-rate strap | ~½ day |
 

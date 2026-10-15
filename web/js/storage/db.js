@@ -5,7 +5,7 @@
 import { MIN_SAVE_DISTANCE_M } from '../pipeline/index.js';
 
 const DB_NAME = 'rower';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // 2: + workouts
 const BACKUP_FORMAT = 'rower-backup';
 
 let dbPromise = null;
@@ -17,6 +17,7 @@ function open() {
       const db = req.result;
       if (!db.objectStoreNames.contains('sessions')) db.createObjectStore('sessions', { keyPath: 'id' });
       if (!db.objectStoreNames.contains('sessionData')) db.createObjectStore('sessionData', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('workouts')) db.createObjectStore('workouts', { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -87,12 +88,28 @@ export async function finalizeInterrupted() {
   }
 }
 
+// ---------- user workouts ----------
+
+export async function listWorkouts() {
+  const db = await open();
+  const all = await req(db.transaction('workouts').objectStore('workouts').getAll());
+  return all.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function saveWorkout(workout) {
+  return tx(['workouts'], 'readwrite', (w) => w.put(workout));
+}
+
+export function deleteWorkout(id) {
+  return tx(['workouts'], 'readwrite', (w) => w.delete(id));
+}
+
 /** Everything, as one JSON-able object. */
 export async function exportAll() {
   const sessions = await listSessions();
   const items = [];
   for (const s of sessions) items.push(await getSession(s.id));
-  return { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), items };
+  return { format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), items, workouts: await listWorkouts() };
 }
 
 /** Accepts a full backup or a single-session export. Existing ids are overwritten. @returns count imported */
@@ -103,5 +120,6 @@ export async function importBackup(json) {
     if (!session?.id || !session.summary) throw new Error('Backup contains an invalid session');
     await saveSession(session, data ?? { id: session.id, samples: [], raw: [] });
   }
+  for (const w of json.workouts ?? []) if (w?.id && Array.isArray(w.segments)) await saveWorkout(w);
   return items.length;
 }

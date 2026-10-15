@@ -6,9 +6,12 @@ import { bytesToHex } from './protocol/ftms.js';
 import { BleTransport, bluetoothSupport } from './ble/transport.js';
 import { ReplayTransport, parseCapture } from './ble/replay.js';
 import { SimulatorTransport } from './ble/simulator.js';
-import { renderLive, renderConnection } from './ui/live.js';
+import { renderLive, renderConnection, renderWorkout, renderKnobPrompt, renderWorkoutDone } from './ui/live.js';
+import { WorkoutRun, isHard } from './workout/engine.js';
+import { sound, unlockAudio, setSoundEnabled } from './workout/sound.js';
+import { WorkoutsView } from './ui/workouts.js';
 import { DebugView } from './ui/debug.js';
-import { loadSettings, pipelineSettings, setupSettingsDialog } from './ui/settings.js';
+import { loadSettings, saveSettings, pipelineSettings, setupSettingsDialog, SMOOTHING } from './ui/settings.js';
 import { fmtPace, fmtTime, fmtDistance } from './ui/format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -26,6 +29,14 @@ let recorder = null; // the session being rowed (null until the first stroke)
 let captureStart = 0; // index in `capture` where the current session began
 const AUTOSAVE_MS = 15000;
 const history = new HistoryView(() => settings.units);
+
+// workout state
+let run = null; // WorkoutRun being rowed
+let pendingWorkout = null; // chosen before the rower was connected
+let knobPrompt = null; // {knob, initial?, hideAt?}
+let workoutDone = null; // {name, text, refPaceS} shown after a workout ends
+const workouts = new WorkoutsView(() => settings, startWorkout);
+setSoundEnabled(settings.sounds);
 
 // ---------- transports ----------
 
@@ -50,6 +61,7 @@ function attach(tr) {
     if (pipeline.packet(pkt)) {
       const v = pipeline.view(pkt.t);
       debug.onSample(pkt.t, v);
+      if (run) onWorkoutEvents(run.update(v, epochOf(pkt.t) / 1000), epochOf(pkt.t) / 1000);
       record(v, pkt.t);
     }
     for (const ev of pipeline.takeEvents()) {
@@ -71,6 +83,7 @@ function attach(tr) {
     if (state === 'connected' && !started) {
       started = true;
       newSession({ resetRower: true });
+      if (pendingWorkout) loadRun(pendingWorkout);
     }
     renderConnection(state, deviceName);
     updateWakeLock();
@@ -84,6 +97,7 @@ const sourceOf = (tr) => (tr instanceof BleTransport ? 'ble' : tr instanceof Sim
 // faster than real time, so their timestamps must not be read against Date.now().
 let epochAnchor = null;
 const epochOf = (t) => {
+  if (!isFinite(t)) return Date.now();
   epochAnchor ??= { ms: Date.now(), t };
   return epochAnchor.ms + (t - epochAnchor.t) * 1000;
 };
@@ -98,7 +112,14 @@ function record(view, t) {
     device: deviceName,
     kcalSource: pipeline.settings.calorieSource,
   });
-  recorder.add(view, epochOf(t));
+  if (run && !recorder.workout) {
+    recorder.workout = {
+      id: run.workout.id,
+      name: run.workout.name,
+      steps: run.steps.map(({ label, type, intensity, durationS, distanceM, knob }) => ({ label, type, intensity, durationS, distanceM, knob })),
+    };
+  }
+  recorder.add(view, epochOf(t), run && run.i >= 0 && !run.done ? run.i : undefined);
 }
 
 /** Save the current session if it counts (>= 20 m), then forget it. */
@@ -138,6 +159,100 @@ function newSession({ resetRower }) {
   }
 }
 
+// ---------- workouts ----------
+
+function startWorkout(workout) {
+  unlockAudio(); // browsers only allow sound after a tap
+  workoutDone = null;
+  if (!transport) {
+    pendingWorkout = workout; // starts when the rower connects
+    setView('live');
+    return;
+  }
+  newSession({ resetRower: true });
+  loadRun(workout);
+  setView('live');
+}
+
+function loadRun(workout) {
+  pendingWorkout = null;
+  run = new WorkoutRun(workout, { referencePaceS: settings.referencePaceS, knobOffset: settings.knobOffset });
+  if (run.knob != null) pipeline.setKnob(run.knob);
+  knobPrompt = run.knob != null ? { knob: run.knob, initial: true } : null;
+  applySmoothing(null);
+}
+
+function endWorkout() {
+  run = null;
+  knobPrompt = null;
+  applySmoothing(null);
+}
+
+/** Quicker smoothing during hard intervals (if enabled), the user's choice otherwise. */
+function applySmoothing(step) {
+  const fast = step && settings.fastWork && isHard(step);
+  pipeline.setSmoothing(fast ? SMOOTHING.low : SMOOTHING[settings.smoothing] ?? SMOOTHING.medium);
+}
+
+function onWorkoutEvents(events, wallS) {
+  for (const e of events) {
+    if (e.type === 'start' && knobPrompt) knobPrompt.hideAt = wallS + 3;
+    if (e.type === 'step') {
+      if (e.step.knob != null) pipeline.setKnob(e.step.knob); // assume the knob was changed as prompted
+      applySmoothing(e.step);
+      sound.step();
+      if (knobPrompt && !knobPrompt.initial && e.step.knob === knobPrompt.knob) knobPrompt.hideAt = wallS + 4;
+    }
+    if (e.type === 'countdown') sound.countdown();
+    if (e.type === 'knob') {
+      knobPrompt = { knob: e.knob };
+      sound.knob();
+    }
+    if (e.type === 'done') {
+      sound.done();
+      completeWorkout();
+    }
+  }
+}
+
+/** Average pace over the benchmark steps, from the recorded samples. */
+function benchmarkPace(rec, r) {
+  if (!rec) return null;
+  const idx = new Set(r.steps.flatMap((s, i) => (s.benchmark ? [i] : [])));
+  const first = rec.samples.findIndex((p) => idx.has(p.g));
+  if (first < 0) return null;
+  const last = rec.samples.findLastIndex((p) => idx.has(p.g));
+  const before = first > 0 ? rec.samples[first - 1] : { d: 0, mv: 0 };
+  const a = rec.samples[last];
+  const d = a.d - before.d;
+  return d > 0 ? Math.round((500 * (a.mv - before.mv)) / d) : null;
+}
+
+function completeWorkout() {
+  const w = run.workout;
+  const refPaceS = w.benchmark ? benchmarkPace(recorder, run) : null;
+  const d = fmtDistance(recorder?.distance ?? 0, settings.units);
+  const text = `${d.value} ${d.unit} in ${fmtTime(pipeline.clock.movingNow(transport.now()))}.${refPaceS ? ` Average pace ${fmtPace(refPaceS)} /500m.` : ''}`;
+  endWorkout();
+  newSession({ resetRower: true }); // saves the workout session
+  workoutDone = { name: w.name, text, refPaceS };
+}
+
+function knobPromptView(v, wallS) {
+  if (!knobPrompt) return null;
+  if (knobPrompt.hideAt != null && wallS > knobPrompt.hideAt) {
+    knobPrompt = null;
+    return null;
+  }
+  if (knobPrompt.initial && (!run || run.i < 0)) return { knob: knobPrompt.knob, when: 'then start rowing' };
+  const change = run?.nextKnobChange();
+  const p = run && run.i >= 0 ? run.progress(v, wallS) : null;
+  if (change && change.knob === knobPrompt.knob && p?.remainingS != null) {
+    return { knob: knobPrompt.knob, when: `in ${fmtTime(Math.max(0, Math.ceil(p.remainingS + change.betweenS)))}` };
+  }
+  return { knob: knobPrompt.knob, when: 'now' };
+}
+
 let toastTimer = null;
 function showNotice(text, seconds = 8) {
   const el = $('toast');
@@ -148,6 +263,7 @@ function showNotice(text, seconds = 8) {
 }
 
 function detach() {
+  endWorkout();
   finishSession();
   transport = null;
   $('connect').hidden = view !== 'live';
@@ -234,6 +350,10 @@ function frame() {
     const v = pipeline.view(transport.now());
     v.kcalSource = pipeline.settings.calorieSource;
     renderLive(v, settings.units);
+    const wallS = epochOf(transport.now()) / 1000;
+    renderWorkout(run, run && run.i >= 0 ? run.progress(v, wallS) : null, v, !!settings.referencePaceS);
+    renderKnobPrompt(knobPromptView(v, wallS));
+    renderWorkoutDone(workoutDone);
   }
   debug.render(view === 'debug');
 }
@@ -247,6 +367,11 @@ function setView(name) {
   $('debug').hidden = name !== 'debug';
   $('history').hidden = name !== 'history';
   if (name === 'history') history.showList();
+  $('workouts').hidden = name !== 'workouts';
+  if (name === 'workouts') workouts.show();
+  const pending = $('pending-workout');
+  pending.hidden = !pendingWorkout;
+  if (pendingWorkout) pending.textContent = `Ready: ${pendingWorkout.name}. Connect your rower to start.`;
   if (transport) showLive();
   else $('connect').hidden = name !== 'live';
   if (name !== 'live') $('live').hidden = true;
@@ -257,6 +382,21 @@ for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('c
 
 $('btn-connect').addEventListener('click', connectRower);
 $('btn-sim').addEventListener('click', startSimulator);
+$('wk-skip').addEventListener('click', () => {
+  if (!run || !transport) return;
+  const now = transport.now();
+  onWorkoutEvents(run.skip(pipeline.view(now), epochOf(now) / 1000), epochOf(now) / 1000);
+});
+$('wk-end').addEventListener('click', endWorkout);
+$('wd-close').addEventListener('click', () => { workoutDone = null; });
+$('wd-ref').addEventListener('click', () => {
+  if (!workoutDone?.refPaceS) return;
+  settings = { ...settings, referencePaceS: workoutDone.refPaceS };
+  saveSettings(settings);
+  showNotice(`Reference pace set to ${fmtPace(workoutDone.refPaceS)} /500m.`);
+  workoutDone = { ...workoutDone, refPaceS: null };
+});
+
 $('btn-disconnect').addEventListener('click', () => {
   finishSession();
   transport?.disconnect();
@@ -319,6 +459,7 @@ setupSettingsDialog($('settings'), $('open-settings'), () => settings, (s) => {
   settings = s;
   // calorie source and weight apply now; smoothing windows apply from the next session
   Object.assign(pipeline.settings, pipelineSettings(s));
+  setSoundEnabled(s.sounds);
 });
 
 // for inspecting a live session from the browser console

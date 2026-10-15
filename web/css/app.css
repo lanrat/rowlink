@@ -145,6 +145,56 @@ main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
   background: var(--surface-2); border-radius: 10px; padding: 0.6rem;
 }
 
+/* Workouts */
+.pending { font-weight: 600; color: var(--accent); }
+.workout {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+}
+.wk-head { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.wk-name { font-weight: 700; }
+.wk-step { color: var(--muted); }
+.wk-main { display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.wk-remaining { font-size: clamp(2rem, 7vw, 3.2rem); font-weight: 700; font-variant-numeric: tabular-nums; }
+.wk-targets { font-size: 1.05rem; }
+.wk-bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; margin: 0.5rem 0 0.4rem; }
+.wk-bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.25s linear; }
+.workout.done p { margin: 0.4rem 0 0.6rem; }
+.knob-prompt {
+  display: flex; align-items: center; justify-content: center; gap: 0.8rem; flex-wrap: wrap;
+  background: var(--accent); color: var(--accent-text); border-radius: 16px;
+  padding: 0.6rem 1rem; margin-bottom: 0.75rem; font-weight: 700;
+}
+.kp-label { font-size: 1.4rem; }
+.kp-knob { font-size: 3rem; line-height: 1; font-variant-numeric: tabular-nums; }
+.kp-when { font-size: 1.2rem; opacity: 0.85; }
+.tile[data-target="ok"] { border-color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
+.tile[data-target="off"] { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+.wo-group { margin: 1rem 0 0.4rem; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.wo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.6rem; }
+.wo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.wo-card h3 { margin: 0; font-size: 1.05rem; }
+.wo-card .meta { color: var(--muted); font-size: 0.85rem; }
+.wo-card .actions { margin-top: auto; justify-content: flex-start; }
+.editor { display: block; }
+.editor h2 { margin: 0; font-size: 1.2rem; }
+.editor label.wide { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.6rem 0; color: var(--muted); }
+.editor input, .editor select { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.4em 0.5em; min-width: 0; }
+.seg-head, .seg-row { display: grid; grid-template-columns: 5.5rem 4.5rem 4.5rem 3.5rem 7rem 7rem auto; gap: 0.4rem; align-items: center; }
+.seg-head { font-size: 0.8rem; margin-top: 0.6rem; }
+.seg-row { margin: 0.3rem 0; }
+.seg-row .pair { display: flex; gap: 0.2rem; align-items: center; }
+.seg-row .pair input { width: 100%; }
+.seg-row .btns { display: flex; gap: 0.2rem; }
+.seg-row .btns button { padding: 0.3em 0.55em; }
+.seg-row[data-type="rest"] .row-only { visibility: hidden; }
+.settings-form label.check { flex-direction: row; align-items: center; gap: 0.5rem; color: var(--text); }
+@media (max-width: 760px) {
+  .seg-head { display: none; }
+  .seg-row { grid-template-columns: 1fr 1fr 1fr 1fr; padding: 0.4rem; background: var(--surface-2); border-radius: 10px; }
+  .seg-row .pair, .seg-row .btns { grid-column: span 2; }
+}
+
 /* History */
 .spacer { flex: 1; }
 .history-head { margin-bottom: 0.5rem; }
@@ -155,6 +205,7 @@ main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
   text-align: left; background: var(--surface); border-radius: 14px; padding: 0.8rem 1rem;
 }
 .session-row .when { font-weight: 600; }
+.session-row .wo-name { display: block; font-weight: 400; color: var(--muted); font-size: 0.9rem; }
 .session-row .stat { font-variant-numeric: tabular-nums; }
 .session-row .big { font-weight: 700; font-size: 1.1rem; }
 .badge { margin-left: 0.5rem; font-size: 0.75rem; font-weight: 500; padding: 0.1em 0.5em; border-radius: 999px; background: var(--surface-2); color: var(--muted); }

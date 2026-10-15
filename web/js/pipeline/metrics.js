@@ -134,6 +134,16 @@ export class Metrics {
     this.lastT = null;
   }
 
+  /** Change smoothing mid-session (e.g. quicker during hard intervals). Keeps the data already collected. */
+  setSmoothing({ paceWindowS, spmWindowS, powerWindowS, adaptive = {} }) {
+    for (const [rate, windowS] of [[this.distRate, paceWindowS], [this.strokeRate, spmWindowS]]) {
+      if (windowS) rate.windowS = windowS;
+      for (const k of ['shortS', 'threshold', 'alphaFast', 'persist']) if (adaptive[k] != null) rate[k] = adaptive[k];
+      rate.shortS = Math.min(rate.shortS, rate.windowS);
+    }
+    if (powerWindowS) this.power.windowS = powerWindowS;
+  }
+
   clearWindows() {
     for (const w of [this.distRate, this.strokeRate, this.power]) w.reset();
   }

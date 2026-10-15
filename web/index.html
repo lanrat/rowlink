@@ -14,6 +14,7 @@
     <span id="conn" class="pill" data-state="disconnected">Not connected</span>
     <nav class="tabs" role="tablist">
       <button role="tab" data-view="live" aria-selected="true">Live</button>
+      <button role="tab" data-view="workouts" aria-selected="false">Workouts</button>
       <button role="tab" data-view="history" aria-selected="false">History</button>
       <button role="tab" data-view="debug" aria-selected="false">Debug</button>
     </nav>
@@ -25,6 +26,7 @@
     <section id="connect" class="connect">
       <h1>Connect your rower</h1>
       <p class="muted">Wake the rower with a stroke, make sure no phone is connected to it, then connect.</p>
+      <p id="pending-workout" class="pending" hidden></p>
       <button id="btn-connect" class="primary big">Connect rower</button>
       <p id="support" class="warn" hidden></p>
       <div class="alt">
@@ -39,10 +41,37 @@
 
     <!-- Live dashboard -->
     <section id="live" class="live" hidden>
+      <div id="knob-prompt" class="knob-prompt" role="alert" hidden>
+        <span class="kp-label">Set knob to</span>
+        <span class="kp-knob" id="kp-knob">8</span>
+        <span class="kp-when" id="kp-when"></span>
+      </div>
       <div id="banner" class="banner" hidden></div>
 
+      <div id="workout-panel" class="workout" hidden>
+        <div class="wk-head">
+          <span class="wk-name" id="wk-name"></span>
+          <span class="wk-step" id="wk-step"></span>
+          <span class="spacer"></span>
+          <button id="wk-skip">Skip step</button>
+          <button id="wk-end">End workout</button>
+        </div>
+        <div class="wk-main">
+          <div class="wk-remaining" id="wk-remaining"></div>
+          <div class="wk-targets" id="wk-targets"></div>
+        </div>
+        <div class="wk-bar" aria-hidden="true"><div id="wk-bar-step"></div></div>
+        <div class="wk-next muted" id="wk-next"></div>
+      </div>
+
+      <div id="workout-done" class="workout done" hidden>
+        <div class="wk-head"><strong id="wd-title">Workout complete</strong><span class="spacer"></span><button id="wd-close">Close</button></div>
+        <p id="wd-text" class="muted"></p>
+        <button id="wd-ref" class="primary" hidden></button>
+      </div>
+
       <div class="hero">
-        <div class="tile tile-pace">
+        <div class="tile tile-pace" id="tile-pace">
           <div class="label">Pace <span class="unit">/500m</span></div>
           <div class="value" id="v-pace">–:––</div>
           <div class="sub">avg <span id="v-avgpace">–:––</span></div>
@@ -60,7 +89,7 @@
       </div>
 
       <div class="grid">
-        <div class="tile">
+        <div class="tile" id="tile-spm">
           <div class="label">Stroke rate <span class="unit">spm</span></div>
           <div class="value" id="v-spm">–</div>
           <div class="sub">avg <span id="v-avgspm">–</span></div>
@@ -102,6 +131,35 @@
         <button id="btn-new" class="primary">Finish &amp; save</button>
         <button id="btn-disconnect">Disconnect</button>
       </div>
+    </section>
+
+    <!-- Workouts -->
+    <section id="workouts" class="workouts" hidden>
+      <div id="workouts-list-view">
+        <div class="row history-head">
+          <h2>Workouts</h2>
+          <span class="spacer"></span>
+          <button id="wo-new">New workout</button>
+        </div>
+        <p id="wo-ref-hint" class="muted"></p>
+        <div id="workouts-list"></div>
+      </div>
+      <form id="wo-editor" class="panel editor" hidden>
+        <div class="row">
+          <h2 id="wo-editor-title">New workout</h2>
+          <span class="spacer"></span>
+          <button type="button" id="wo-cancel">Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </div>
+        <label class="wide">Name <input name="name" required maxlength="60"></label>
+        <label class="wide">Description <input name="description" maxlength="160"></label>
+        <div class="seg-head muted">
+          <span>Type</span><span>Length</span><span>Unit</span><span>Knob</span><span>Rate (spm)</span><span>Pace (% of ref)</span><span></span>
+        </div>
+        <div id="wo-segments"></div>
+        <button type="button" id="wo-add">+ Add segment</button>
+        <p id="wo-total" class="muted"></p>
+      </form>
     </section>
 
     <!-- History -->
@@ -190,6 +248,14 @@
       </label>
       <label><span>Body weight (<span id="u-weight">lb</span>)</span> <input name="weight" type="number" min="30" max="550" step="1"></label>
       <label>Starting knob level <input name="defaultKnob" type="number" min="1" max="16" step="1"></label>
+      <label>Reference pace (/500m) for workout targets
+        <input name="referencePace" placeholder="e.g. 2:05" pattern="\d{1,2}:\d{2}" inputmode="numeric">
+      </label>
+      <label>Knob offset for workouts (shifts every suggested level)
+        <input name="knobOffset" type="number" min="-8" max="8" step="1">
+      </label>
+      <label class="check"><input name="fastWork" type="checkbox"> Quicker smoothing during hard intervals</label>
+      <label class="check"><input name="sounds" type="checkbox"> Beeps</label>
       <div class="actions">
         <button value="cancel" formnovalidate>Cancel</button>
         <button value="save" class="primary">Save</button>

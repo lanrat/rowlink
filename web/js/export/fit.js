@@ -23,6 +23,8 @@ const EVENT_TYPE = { START: 0, STOP: 1, STOP_ALL: 4 };
 const SPORT_ROWING = 15;
 const SUB_SPORT_INDOOR_ROWING = 14;
 const LAP_TRIGGER_SESSION_END = 7;
+const LAP_TRIGGER_MANUAL = 0;
+const INTENSITY = { active: 0, rest: 1, warmup: 2, cooldown: 3, recovery: 4, interval: 5 };
 const SESSION_TRIGGER_ACTIVITY_END = 0;
 const ACTIVITY_MANUAL = 0;
 
@@ -40,6 +42,7 @@ const FIELDS = {
     totalDistance: [9, 'uint32', 100], totalCycles: [10, 'uint32'], totalCalories: [11, 'uint16'],
     avgSpeed: [13, 'uint16', 1000], maxSpeed: [14, 'uint16', 1000], avgPower: [19, 'uint16'], maxPower: [20, 'uint16'],
     avgCadence: [17, 'uint8'], maxCadence: [18, 'uint8'], sport: [25, 'enum'], subSport: [39, 'enum'], lapTrigger: [24, 'enum'],
+    intensity: [23, 'enum'],
   },
   [MESG.SESSION]: {
     messageIndex: [254, 'uint16'], timestamp: [253, 'uint32'], event: [0, 'enum'], eventType: [1, 'enum'],
@@ -117,6 +120,49 @@ class FitWriter {
 
 const fitTime = (epochMs) => Math.floor(epochMs / 1000) - FIT_EPOCH_S;
 
+/** One lap per workout step (samples carry the step index `g`); one lap for free rowing. */
+function lapsFor(session, samples) {
+  const groups = [];
+  for (const p of samples) {
+    const g = p.g ?? 0;
+    if (!groups.length || groups.at(-1).g !== g) groups.push({ g, samples: [] });
+    groups.at(-1).samples.push(p);
+  }
+  const steps = session.workout?.steps ?? [];
+  let prev = { t: 0, mv: 0, d: 0, k: 0, c: 0 };
+  return groups.map(({ g, samples: ps }) => {
+    const last = ps.at(-1);
+    const active = ps.filter((p) => !p.z);
+    const mean = (k) => {
+      const v = active.map((p) => p[k]).filter((x) => x != null);
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    };
+    const maxOf = (k) => active.reduce((m, p) => (p[k] != null && (m == null || p[k] > m) ? p[k] : m), null);
+    const bestPace = active.reduce((m, p) => (p.p != null && (m == null || p.p < m) ? p.p : m), null);
+    const distance = (last.d ?? 0) - (prev.d ?? 0);
+    const moving = (last.mv ?? 0) - (prev.mv ?? 0);
+    const step = steps[g];
+    const lap = {
+      timestamp: fitTime(session.startedAt + last.t * 1000),
+      startTime: fitTime(session.startedAt + prev.t * 1000),
+      totalElapsedTime: last.t - prev.t,
+      totalTimerTime: moving,
+      totalDistance: distance,
+      totalCycles: (last.k ?? 0) - (prev.k ?? 0),
+      totalCalories: (last.c ?? 0) - (prev.c ?? 0),
+      avgSpeed: moving > 0 ? distance / moving : null,
+      maxSpeed: bestPace ? 500 / bestPace : null,
+      avgPower: mean('w'),
+      maxPower: maxOf('w'),
+      avgCadence: mean('r'),
+      maxCadence: maxOf('r'),
+      intensity: step ? INTENSITY[step.type === 'rest' ? 'rest' : step.intensity ?? 'active'] : INTENSITY.active,
+    };
+    prev = last;
+    return lap;
+  });
+}
+
 /** Knob 1-16 -> FIT "resistance" (relative, 0-254). */
 export const knobToFitResistance = (knob, maxKnob = 16) => Math.round((knob / maxKnob) * 254);
 
@@ -158,10 +204,14 @@ export function encodeFit(session, data) {
     maxSpeed: speed(s.bestPaceS), avgPower: s.avgPowerW, maxPower: s.maxPowerW, avgCadence: s.avgSpm,
     maxCadence: s.maxSpm, sport: SPORT_ROWING, subSport: SUB_SPORT_INDOOR_ROWING,
   };
-  w.write(MESG.LAP, { ...totals, messageIndex: 0, event: EVENT.LAP, eventType: EVENT_TYPE.STOP, lapTrigger: LAP_TRIGGER_SESSION_END });
+  const laps = lapsFor(session, samples);
+  laps.forEach((lap, i) => w.write(MESG.LAP, {
+    ...lap, messageIndex: i, event: EVENT.LAP, eventType: EVENT_TYPE.STOP, sport: SPORT_ROWING, subSport: SUB_SPORT_INDOOR_ROWING,
+    lapTrigger: laps.length > 1 ? LAP_TRIGGER_MANUAL : LAP_TRIGGER_SESSION_END,
+  }));
   w.write(MESG.SESSION, {
     ...totals, messageIndex: 0, event: EVENT.SESSION, eventType: EVENT_TYPE.STOP,
-    firstLapIndex: 0, numLaps: 1, trigger: SESSION_TRIGGER_ACTIVITY_END,
+    firstLapIndex: 0, numLaps: laps.length, trigger: SESSION_TRIGGER_ACTIVITY_END,
   });
   const tzOffsetS = -new Date(end).getTimezoneOffset() * 60;
   w.write(MESG.ACTIVITY, {

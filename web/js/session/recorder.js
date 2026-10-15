@@ -24,11 +24,17 @@ export class Recorder {
     this.kcalSource = kcalSource;
     this.samples = [];
     this.last = null;
+    this.workout = null; // {id, name, steps} when rowing a workout
   }
 
-  /** @param view pipeline.view(); @param epochMs wall-clock time of that view */
-  add(view, epochMs) {
+  /**
+   * @param view pipeline.view()
+   * @param epochMs wall-clock time of that view
+   * @param step index of the workout step being rowed (omitted for free rowing)
+   */
+  add(view, epochMs, step) {
     this.samples.push({
+      ...(step != null ? { g: step } : {}),
       t: r1((epochMs - this.startedAt) / 1000), // wall-clock seconds since start
       mv: r1(view.movingS),
       d: r0(view.distance),
@@ -69,6 +75,7 @@ export class Recorder {
       endedAt: this.last?.epochMs ?? this.startedAt,
       source: this.source,
       device: this.device,
+      ...(this.workout ? { workout: this.workout } : {}),
       summary: {
         distanceM: r0(v?.distance ?? 0),
         movingS: r1(v?.movingS ?? 0),

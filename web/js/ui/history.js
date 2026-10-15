@@ -60,7 +60,8 @@ export class HistoryView {
     list.replaceChildren(...sessions.map((s) => {
       const m = s.summary;
       return el('button', { class: 'session-row', onclick: () => this.openDetail(s.id) },
-        el('span', { class: 'when' }, dateLabel(s.startedAt), SOURCE_LABEL[s.source] ? el('span', { class: 'badge' }, SOURCE_LABEL[s.source]) : null),
+        el('span', { class: 'when' }, dateLabel(s.startedAt), s.workout ? el('span', { class: 'wo-name' }, s.workout.name) : null,
+          SOURCE_LABEL[s.source] ? el('span', { class: 'badge' }, SOURCE_LABEL[s.source]) : null),
         el('span', { class: 'stat big' }, distLabel(m.distanceM, units)),
         el('span', { class: 'stat' }, fmtTime(m.movingS)),
         el('span', { class: 'stat' }, `${fmtPace(m.avgPaceS)} /500m`),
@@ -77,7 +78,7 @@ export class HistoryView {
     const { session: s } = found;
     const m = s.summary;
     const units = this.getUnits();
-    $('history-title').textContent = dateLabel(s.startedAt);
+    $('history-title').textContent = s.workout ? `${s.workout.name} · ${dateLabel(s.startedAt)}` : dateLabel(s.startedAt);
     const knob = m.knobs?.length ? (m.knobs.length === 1 ? String(m.knobs[0]) : `${Math.min(...m.knobs)}–${Math.max(...m.knobs)}`) : '–';
     const tiles = [
       ['Distance', distLabel(m.distanceM, units)],

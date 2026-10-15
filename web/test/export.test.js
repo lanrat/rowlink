@@ -75,3 +75,20 @@ test('CSV: header plus one row per second', async () => {
   assert.match(lines[0], /^time,elapsed_s,moving_s,distance_m/);
   assert.equal(lines[1].split(',').length, lines[0].split(',').length);
 });
+
+test('FIT: one lap per workout step, with intensities', { skip: !fitsdk && 'npm install to run' }, async () => {
+  const { Decoder, Stream } = fitsdk;
+  const rec = await replayToSession('02-knob.jsonl');
+  // pretend the session was a workout: warm-up for the first 40 samples, then an interval
+  rec.samples.forEach((p, i) => { p.g = i < 40 ? 0 : 1; });
+  rec.workout = { id: 'x', name: 'Test', steps: [{ type: 'row', intensity: 'warmup', label: 'Warm-up' }, { type: 'row', intensity: 'interval', label: 'Hard' }] };
+  const { session, data } = rec.build();
+  const { messages, errors } = new Decoder(Stream.fromByteArray(Array.from(encodeFit(session, data)))).read();
+  assert.deepEqual(errors, []);
+  const laps = messages.lapMesgs;
+  assert.equal(laps.length, 2);
+  assert.deepEqual(laps.map((l) => l.intensity), ['warmup', 'interval']);
+  assert.equal(messages.sessionMesgs[0].numLaps, 2);
+  const lapDistance = laps.reduce((d, l) => d + l.totalDistance, 0);
+  assert.ok(Math.abs(lapDistance - session.summary.distanceM) < 1, `laps ${lapDistance} vs ${session.summary.distanceM}`);
+});
