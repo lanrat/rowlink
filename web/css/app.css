@@ -169,20 +169,20 @@ body.immersive .knob-row .value { flex: 1; min-width: 0; text-align: center; }
 }
 /* workout panel shrinks to a two-line bar: [time left + targets] [step / next] [skip] [end].
    Step / next always keep 10rem (enough for "Step 2 of 10: Warm-up"); beyond that the targets come first. */
-body.immersive .workout {
+body.immersive #workout-panel {
   display: grid; grid-template-columns: minmax(0, auto) minmax(10rem, 1fr) auto auto;
   grid-template-areas: "main step skip end" "total next skip end" "bar bar bar bar";
   align-items: center; column-gap: 0.8rem; padding: 0.3rem 2.9rem 0.3rem 0.8rem; margin: 0; /* right: room for the exit button */
 }
-body.immersive .wk-head { display: contents; }
-body.immersive .wk-head .spacer, body.immersive .wk-name { display: none; }
+body.immersive #workout-panel .wk-head { display: contents; }
+body.immersive #workout-panel .wk-head .spacer, body.immersive .wk-name { display: none; }
 body.immersive .wk-main { grid-area: main; margin: 0; display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: nowrap; min-width: 0; }
 body.immersive .wk-step, body.immersive .wk-next { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
 body.immersive .wk-step { grid-area: step; color: var(--text); }
 body.immersive .wk-next { grid-area: next; }
 body.immersive #wk-skip { grid-area: skip; }
 body.immersive #wk-end { grid-area: end; }
-body.immersive .wk-head button { padding: 0.3em 0.7em; }
+body.immersive #workout-panel .wk-head button { padding: 0.3em 0.7em; }
 body.immersive .wk-remaining { font-size: clamp(1.4rem, 8vh, 2.2rem); flex-shrink: 0; }
 body.immersive .wk-targets { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 body.immersive .wk-total { grid-area: total; font-size: 0.8rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -195,6 +195,7 @@ body.immersive .knob-prompt, body.immersive .workout.done {
   position: fixed; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
   box-shadow: 0 10px 40px rgb(0 0 0 / 0.5); max-width: calc(100vw - 2rem);
 }
+body.immersive .workout.done { width: 30rem; }
 body.immersive .knob-prompt { padding: 1rem 2rem; }
 body.immersive .kp-knob { font-size: 5rem; }
 body.immersive .banner {
