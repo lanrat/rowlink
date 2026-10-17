@@ -1,9 +1,9 @@
 // Segmented workout timeline: one block per step, sized by planned time, coloured by kind.
 import { timeline } from '../workout/engine.js';
 
-/** easy / steady / hard / rest, for colouring */
+/** easy / steady / hard / rest, for colouring (free steps, with no targets, look like rest) */
 export function stepKind(step) {
-  if (step.type === 'rest') return 'rest';
+  if (step.type === 'rest' || step.type === 'free') return 'rest';
   if (step.intensity === 'interval') return 'hard';
   if (['warmup', 'cooldown', 'recovery'].includes(step.intensity)) return 'easy';
   return 'steady';

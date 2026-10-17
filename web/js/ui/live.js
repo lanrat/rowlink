@@ -92,6 +92,7 @@ function remainingText(p) {
 function targetsText(step, hasReference) {
   if (!step) return '';
   if (step.type === 'rest') return 'Rest';
+  if (step.type === 'free') return 'No target · on the clock';
   const parts = [];
   if (step.paceRange) parts.push(`Pace ${fmtPace(step.paceRange[0])}–${fmtPace(step.paceRange[1])}`);
   else if (step.pacePct && !hasReference) parts.push('(set a reference pace for pace targets)');

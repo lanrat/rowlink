@@ -274,6 +274,7 @@ body.immersive .banner {
 .wo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.6rem; }
 .wo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
 .wo-card h3 { margin: 0; font-size: 1.05rem; }
+.wo-tag { margin-left: 0.5rem; padding: 0.1em 0.5em; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 0.75rem; font-weight: normal; vertical-align: 0.1em; white-space: nowrap; }
 .wo-card .meta { color: var(--muted); font-size: 0.85rem; }
 .wo-card .actions { margin-top: auto; justify-content: flex-start; }
 .editor { display: block; }
@@ -287,7 +288,7 @@ body.immersive .banner {
 .seg-row .pair input { width: 100%; }
 .seg-row .btns { display: flex; gap: 0.2rem; }
 .seg-row .btns button { padding: 0.3em 0.55em; }
-.seg-row[data-type="rest"] .row-only { visibility: hidden; }
+.seg-row:is([data-type="rest"], [data-type="free"]) .row-only { visibility: hidden; }
 .settings-form label.check { flex-direction: row; align-items: center; gap: 0.5rem; color: var(--text); }
 @media (max-width: 760px) {
   .seg-head { display: none; }

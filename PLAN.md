@@ -257,7 +257,7 @@ Each milestone ends usable: after M1 you can row with a non-jumpy display.
 ### 10.1 Sources
 | Source | Usable? |
 |---|---|
-| FED app | **No.** Rower courses are streamed from FED's server with videos; nothing is bundled in the APK, and the content is theirs |
+| FED app | **Structure only.** Rower courses are streamed from FED's server with videos; nothing is bundled in the APK. The timings, knob levels and stroke-rate targets of 27 classes were captured from the course API ([captures/app-workouts.json](captures/app-workouts.json)) and are used as the basis for the classes in [10.5](#105-classes-from-the-fed-app). FED's names, descriptions, images and videos are theirs and are not used |
 | PowerTrain | **Ideas only.** License allows non-commercial forks. Its generator has 7 types (base endurance, VO2max, sprint, technique, strength, pyramid, race sim) with targets as **% of a reference pace** + stroke rate |
 | Standard rowing sessions | **Yes.** Common formats like 2k test, 8×500m, 4×1000m, pyramids, 30 min at 20 spm are general training knowledge, written fresh here |
 
@@ -286,6 +286,31 @@ Taken from the FED app's own fallback formula (`RowerDataCompat.getMETs`):
 | Technique | 4 × (1 min @ 18, 20, 22, 24 spm) ladder |
 
 Each preset: 5 min warm-up + main set + 5 min cool-down unless it's a test.
+
+### 10.5 Classes from the FED app
+
+Status: **done.** Source: [captures/app-workouts.json](captures/app-workouts.json) (27 classes, 6–39 min, F1–F3), kept out of the repo because it holds FED's text. Regenerate with `node web/tools/import-fed.mjs`; the tests that compare against the capture skip when it's missing (CI).
+
+**What the data looks like**
+- Each class is made of steps (Warm-up, Block 1, Cool Down…), and each step is made of stages with a duration, resistance and stroke-rate target
+- Resistance 1–16 is our knob 1–16. Classes use levels 1–12, mostly 1–8
+- Targets are stroke rate only (target ±2 spm). No pace targets, so classes work without a reference pace
+- Stages with no target: Introduction and Feedback (video talk), floor exercises between circuit blocks, stretches at the end of the cool down, some warm-up stages. Rowing Machine Foundations has no targets at all
+
+**Decisions**
+- Structure only: our own names and one-line descriptions, no FED text, images or video links
+- Introduction and Feedback are dropped. Other stages with no target are kept as `free` steps
+
+**Phase 1: engine.** New step type `free`: timed on the wall clock like `rest` (a `row` step counts moving time and would never end during a floor exercise, which would need a tap), no targets, labelled with its own name instead of "Rest". Handled in `engine.js` (progress, knob-change lookahead, target status), `live.js`, `timeline.js`, `fit.js` (lap intensity `rest`), `session/targets.js`. Test: a `free` step finishes while the rower is paused.
+
+**Phase 2: converter.** `web/tools/import-fed.mjs` reads the capture and writes `web/js/workout/classes.js` (generated, committed, so still no build step).
+- One segment per stage; `resistance` → `knob`, `[spm_min, spm_max]` → `spm`, no target → `free`
+- Label: step name, plus `(n/N)` when a step has several stages
+- Intensity: Warm-up → `warmup`, Cool Down → `cooldown`; in the main set, ≤24 spm or below the step's top knob → `recovery`, ≥30 spm → `interval`, else `active`
+- Names and descriptions written by us in a small table in the script, keyed by `course_id` (e.g. "Circuit · 3 × 4 min @ 32 spm"); ids `fed-<course_id>`
+- Test: each class's length equals the app's total minus Introduction and Feedback; every knob is 1–16 and every spm range is low ≤ high
+
+**Phase 3: UI.** Workouts screen gets class groups by difficulty (F1: 5, F2: 16, F3: 6), sorted by length. Cards also show the class type as a tag (Endurance, Power, Core…) and the app's estimated distance ("≈ 4000 m") when it has one (19 of 27). Check with the simulator: a circuit's floor blocks advance with no strokes, knob prompts fire before each block.
 
 ---
 

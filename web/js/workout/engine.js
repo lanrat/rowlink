@@ -2,7 +2,11 @@
 // wall-clock time passed in, so it is tested in Node.
 //
 // Row segments by time count the rower's moving time (they wait while you're paused);
-// rest segments count wall-clock time; distance segments count session distance.
+// rest and free segments count wall-clock time; distance segments count session distance.
+// A free segment has no targets: on or off the rower (e.g. floor exercises in a circuit).
+
+/** Steps timed on the wall clock rather than moving time. */
+export const onClock = (step) => step.type === 'rest' || step.type === 'free';
 
 export const KNOB_PROMPT_S = 10; // warn this long before a knob change
 const COUNTDOWN_FROM_S = 3;
@@ -29,6 +33,7 @@ export function flatten(workout) {
 
 function defaultLabel(s) {
   if (s.type === 'rest') return 'Rest';
+  if (s.type === 'free') return 'Free';
   if (s.distanceM) return `${s.distanceM} m`;
   const d = s.durationS ?? 0;
   return d % 60 ? `${d} s` : `${d / 60} min`;
@@ -152,7 +157,7 @@ export class WorkoutRun {
       const speed = view.pace ? 500 / view.pace : null;
       return { elapsed, total: step.distanceM, remaining, unit: 'm', remainingS: speed ? remaining / speed : null };
     }
-    const elapsed = step.type === 'rest' ? wallS - this.stepStart.wallS : view.movingS - this.stepStart.movingS;
+    const elapsed = onClock(step) ? wallS - this.stepStart.wallS : view.movingS - this.stepStart.movingS;
     const remaining = step.durationS - elapsed;
     return { elapsed, total: step.durationS, remaining, unit: 's', remainingS: remaining };
   }

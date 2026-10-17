@@ -5,3 +5,6 @@ PowerTrain/
 node_modules/
 .DS_Store
 __pycache__/
+
+# FED app captures: hold FED's own text and personal history
+captures/app-*.json

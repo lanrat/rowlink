@@ -1,5 +1,6 @@
-// Workouts screen: presets + your own workouts, and a simple editor.
+// Workouts screen: presets, classes, your own workouts, and a simple editor.
 import { PRESETS } from '../workout/presets.js';
+import { CLASSES } from '../workout/classes.js';
 import { flatten, plannedDurationS, plannedDistanceM } from '../workout/engine.js';
 import { listWorkouts, saveWorkout, deleteWorkout } from '../storage/db.js';
 import { fmtTime, fmtPace } from './format.js';
@@ -24,6 +25,7 @@ export function describe(workout, referencePaceS) {
   const dist = plannedDistanceM(steps);
   const parts = [`≈ ${fmtTime(plannedDurationS(steps, referencePaceS ?? 150))}`];
   if (dist) parts.push(`${dist.toLocaleString()} m of distance pieces`);
+  else if (workout.estDistanceM) parts.push(`≈ ${workout.estDistanceM.toLocaleString()} m`);
   if (knobs.length) parts.push(Math.min(...knobs) === Math.max(...knobs) ? `knob ${knobs[0]}` : `knob ${Math.min(...knobs)}–${Math.max(...knobs)}`);
   return parts.join(' · ');
 }
@@ -62,8 +64,9 @@ export class WorkoutsView {
     }
     const groups = [];
     if (mine.length) groups.push(['My workouts', mine, true]);
-    const cats = [...new Set(PRESETS.map((p) => p.category))];
-    for (const c of cats) groups.push([c, PRESETS.filter((p) => p.category === c), false]);
+    const builtIn = [...PRESETS, ...CLASSES];
+    const cats = [...new Set(builtIn.map((p) => p.category))];
+    for (const c of cats) groups.push([c, builtIn.filter((p) => p.category === c), false]);
     $('workouts-list').replaceChildren(...groups.flatMap(([title, list, own]) => [
       el('h3', { class: 'wo-group' }, title),
       el('div', { class: 'wo-cards' }, ...list.map((w) => this.card(w, own))),
@@ -75,7 +78,7 @@ export class WorkoutsView {
     const preview = el('div', { class: 'wk-timeline', 'aria-hidden': 'true' });
     buildTimeline(preview, flatten(w), ref ?? 150);
     return el('div', { class: 'wo-card' },
-      el('h3', {}, w.name),
+      el('h3', {}, w.name, w.tag ? el('span', { class: 'wo-tag' }, w.tag) : null),
       preview,
       w.description ? el('div', { class: 'meta' }, w.description) : null,
       el('div', { class: 'meta' }, describe(w, ref)),
@@ -123,7 +126,8 @@ export class WorkoutsView {
     const row = el('div', { class: 'seg-row', 'data-type': s.type },
       el('select', { name: 'type', 'aria-label': 'Type', onchange: (e) => { row.dataset.type = e.target.value; } },
         el('option', { value: 'row', selected: s.type === 'row' }, 'Row'),
-        el('option', { value: 'rest', selected: s.type === 'rest' }, 'Rest')),
+        el('option', { value: 'rest', selected: s.type === 'rest' }, 'Rest'),
+        el('option', { value: 'free', selected: s.type === 'free' }, 'Free')),
       num('amount', amount, { min: 1, step: 1, required: true, 'aria-label': 'Length' }),
       el('select', { name: 'unit', 'aria-label': 'Unit' }, ...['min', 's', 'm'].map((u) => el('option', { value: u, selected: u === unit }, u))),
       num('knob', s.knob, { min: 1, max: 16, step: 1, class: 'row-only', 'aria-label': 'Knob' }),
@@ -183,7 +187,7 @@ export class WorkoutsView {
  * Editor works on a flat list. Keep only descriptive labels (Warm-up, Easy, ...);
  * labels like "500 m" are regenerated from the length, so editing the length can't leave them stale.
  */
-const KEEP_LABELS = new Set(['Warm-up', 'Cool-down', 'Easy', 'Rest', 'Steady']);
+const KEEP_LABELS = new Set(['Warm-up', 'Cool-down', 'Easy', 'Rest', 'Steady', 'Free']);
 function stripLabel(s) {
   const base = s.label?.replace(/ \(\d+\/\d+\)$/, '');
   return { ...s, label: KEEP_LABELS.has(base) ? base : undefined };

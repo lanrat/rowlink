@@ -66,6 +66,23 @@ test('time steps wait while you are paused (moving time)', () => {
   assert.equal(log.find((e) => e.type === 'done').t, 21);
 });
 
+test('free steps count wall time while paused, have no targets, and carry the knob prompt', () => {
+  const run = new WorkoutRun({ segments: [
+    { type: 'row', durationS: 20, knob: 3, spm: [24, 28], label: 'A' },
+    { type: 'free', durationS: 30, label: 'F' },
+    { type: 'row', durationS: 20, knob: 6, label: 'B' },
+  ] });
+  // off the rower for the whole free step (floor exercises), then row again
+  const log = simulate(run, { seconds: 80, rows: (t) => t <= 21 || t > 50 });
+  assert.deepEqual(log.filter((e) => e.type === 'step').map((e) => `${e.t}:${e.step}`), ['1:A', '21:F', '51:B']);
+  assert.deepEqual(log.filter((e) => e.type === 'knob').map((e) => [e.t, e.knob]), [[51 - KNOB_PROMPT_S, 6]]);
+  const free = new WorkoutRun({ segments: [{ type: 'free', durationS: 30 }] });
+  free.update({ state: 'active', movingS: 1, distance: 3, pace: 150, spm: 40 }, 1);
+  assert.equal(free.step.label, 'Free');
+  assert.deepEqual(free.targetStatus({ pace: 150, spm: 40 }), { pace: null, spm: null });
+  assert.equal(isHard(free.step), false);
+});
+
 test('countdown beeps and a knob prompt 10 s before the knob changes', () => {
   const run = new WorkoutRun({ segments: [
     { type: 'row', durationS: 60, knob: 4, label: 'A' },
