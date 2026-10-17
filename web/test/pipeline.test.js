@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { parseRowerData, encodeRowerData, parseMachineStatus, hexToBytes } from '../js/protocol/ftms.js';
 import { Counter } from '../js/pipeline/sanitize.js';
+import { Metrics } from '../js/pipeline/metrics.js';
 import { replay } from './helpers.js';
 import { RowerPipeline, MIN_SAVE_DISTANCE_M } from '../js/pipeline/index.js';
 
@@ -146,6 +147,33 @@ test('03-rest: rest time counts in total but not moving time; counters survive t
   assert.equal(last.state, 'active');
   const beforeRest = views.filter((v) => v.state === 'paused')[0].distance;
   assert.ok(last.distance > beforeRest + 30, 'distance keeps counting after the rest');
+});
+
+/** Feed Metrics one sample per second; each stroke's power is held until the next, like the rower. */
+function rowStrokes(watts, strokeS) {
+  const m = new Metrics();
+  const shown = [];
+  for (let t = 0; t < watts.length * strokeS; t++) {
+    const stroke = Math.floor(t / strokeS);
+    const power = watts[stroke];
+    m.update({ t, paused: false, resumed: t === 0, spinup: false, distance: t * 4, strokes: stroke, power, raw: { pace: 120 + stroke, power } }, { knob: 6, maxKnob: 16, weightKg: 75 });
+    shown.push(m.powerW());
+  }
+  return shown;
+}
+
+test('power after a resume: one strong stroke is not shown as-is', () => {
+  // the first counted stroke after a rest is 1.5x the rest of the interval
+  const shown = rowStrokes([300, 200, 205, 195, 200, 210, 190, 200], 3);
+  const first = shown.findIndex((w) => w != null);
+  assert.ok(first > 0, 'nothing shown from a single stroke');
+  assert.ok(Math.max(...shown.filter((w) => w != null)) <= 210, `shown ${shown.join(' ')}`);
+});
+
+test('power stays shown at a slow stroke rate (16 spm: under 3 strokes per 10 s window)', () => {
+  const shown = rowStrokes([200, 210, 190, 205, 195, 200, 210, 190], 3.75);
+  const first = shown.findIndex((w) => w != null);
+  assert.ok(shown.slice(first).every((w) => w != null), `shown ${shown.join(' ')}`);
 });
 
 test('a reset status from the rower ends the session, except right after the app reset it', () => {

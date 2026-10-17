@@ -2,7 +2,7 @@
 // stroke to stroke, so display values come from its counters instead:
 //   pace  <- slope of the distance counter over a time window
 //   spm   <- slope of the stroke counter over a time window
-//   power <- rolling median of reported power
+//   power <- rolling median of reported power, one value per stroke
 
 /**
  * Rate of a cumulative counter (distance or strokes): least-squares slope over a
@@ -85,9 +85,15 @@ function regressionSlope(pts) {
   return sxx ? sxy / sxx : 0;
 }
 
+/**
+ * Median of the values added within a time window. Always keeps the last `minCount`
+ * values however old, and has no value until it has seen that many: right after a
+ * reset one strong stroke would otherwise be shown as-is.
+ */
 export class RollingMedian {
-  constructor(windowS) {
+  constructor(windowS, minCount = 1) {
     this.windowS = windowS;
+    this.minCount = minCount;
     this.items = [];
   }
 
@@ -97,11 +103,11 @@ export class RollingMedian {
 
   add(t, value) {
     if (value != null) this.items.push({ t, v: value });
-    while (this.items.length && this.items[0].t < t - this.windowS) this.items.shift();
+    while (this.items.length > this.minCount && this.items[0].t < t - this.windowS) this.items.shift();
   }
 
   value() {
-    if (!this.items.length) return null;
+    if (this.items.length < Math.max(1, this.minCount)) return null;
     const s = this.items.map((i) => i.v).sort((a, b) => a - b);
     const m = s.length >> 1;
     return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
@@ -123,11 +129,16 @@ export function metFor(knob, maxKnob, spm) {
   return row[i];
 }
 
+const POWER_MIN_STROKES = 3;
+
 export class Metrics {
   constructor({ paceWindowS = 15, spmWindowS = 15, powerWindowS = 10, adaptive } = {}) {
     this.distRate = new LinearRate(paceWindowS, adaptive);
     this.strokeRate = new LinearRate(spmWindowS, adaptive);
-    this.power = new RollingMedian(powerWindowS);
+    // The rower repeats each stroke's power every second until the next stroke, so per-second
+    // samples would weight long strokes more and, after a resume, let one stroke fill the window.
+    this.power = new RollingMedian(powerWindowS, POWER_MIN_STROKES);
+    this.lastReport = null; // raw pace/power of the last stroke report
     this.kcalEstimate = 0;
     this.powerSum = 0;
     this.powerCount = 0;
@@ -159,7 +170,10 @@ export class Metrics {
       // distance during flywheel spin-up is unreliable: start the pace window after it
       if (!sample.spinup) this.distRate.add(t, sample.distance);
       this.strokeRate.add(t, sample.strokes);
-      this.power.add(t, sample.power);
+      // a new stroke report is a change in the rower's pace/power pair
+      const report = `${sample.raw.pace}/${sample.raw.power}`;
+      this.power.add(t, report !== this.lastReport ? sample.power : null);
+      this.lastReport = report;
       if (sample.power != null) {
         this.powerSum += sample.power;
         this.powerCount++;
