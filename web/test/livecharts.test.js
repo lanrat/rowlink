@@ -7,6 +7,7 @@ test('pace gridlines fall on round paces, at most three', () => {
   assert.deepEqual(paceGridlines(140, 180), [150, 165, 180]); // 2:30 2:45 3:00
   assert.deepEqual(paceGridlines(100, 200), [120, 150, 180]);
   assert.deepEqual(paceGridlines(90, 400), [120, 240, 360]);
+  assert.deepEqual(paceGridlines(118, 142, 5), [120, 125, 130, 135, 140], 'a tall chart gets more');
 });
 
 test('the rate scale snaps to multiples of 5 and is at least 10 spm tall', () => {

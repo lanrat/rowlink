@@ -22,7 +22,7 @@ function bannerFor(view, notice) {
 }
 
 // In full screen the numbers are sized to the tile height; shrink any that are too wide.
-const FIT_IDS = ['v-pace', 'v-time', 'v-dist', 'v-power', 'v-knob', 'v-kcal']; // stroke rate lives in the gauge SVG, which scales itself
+const FIT_IDS = ['v-time', 'v-dist', 'v-power', 'v-knob', 'v-kcal']; // stroke rate lives in the gauge SVG, which scales itself
 let fitKey = '';
 
 export function fitValues(force = false) {

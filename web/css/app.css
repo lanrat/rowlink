@@ -114,7 +114,9 @@ main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
   line-height: 1.1;
   white-space: nowrap;
 }
-.tile-pace .value { font-size: clamp(3.4rem, 13vw, 8rem); }
+/* pace tile: the chart fills it; the live pace is small text under it (a big number jumps too much) */
+.tile-pace .mini-chart { flex: 1 1 0; min-height: 120px; height: auto; }
+.pace-sub { display: flex; justify-content: space-between; gap: 1rem; }
 .sub { color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .live[data-state="paused"] #v-time { color: var(--muted); }
 /* during a workout the knob follows the workout: no buttons to press */
@@ -156,7 +158,6 @@ body.immersive .tile { padding: 0.35rem 0.7rem; border-radius: 12px; }
 body.immersive .label { font-size: 0.75rem; }
 body.immersive .sub { font-size: 0.8rem; }
 body.immersive .value { font-size: clamp(1.6rem, min(9vh, 9vw), 4.5rem); }
-body.immersive .tile-pace .value { font-size: clamp(3rem, min(18vh, 22vw), 11rem); }
 body.immersive .round { width: 2.4rem; height: 2.4rem; font-size: 1.2rem; }
 body.immersive .value { overflow: hidden; }
 body.immersive .knob-row .value { flex: 1; min-width: 0; text-align: center; }
@@ -165,7 +166,6 @@ body.immersive .knob-row .value { flex: 1; min-width: 0; text-align: center; }
   body.immersive .dash { grid-template-columns: 2fr 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; }
   body.immersive .tile-pace { grid-column: 1; grid-row: 1 / span 2; }
   body.immersive .value { font-size: clamp(1.6rem, 19vh, 6rem); }
-  body.immersive .tile-pace .value { font-size: clamp(3rem, min(40vh, 14vw), 13rem); }
 }
 /* workout panel shrinks to a two-line bar: [time left + targets] [step / next] [skip] [end].
    Step / next always keep 10rem (enough for "Step 2 of 10: Warm-up"); beyond that the targets come first. */
@@ -189,8 +189,8 @@ body.immersive .wk-total { grid-area: total; font-size: 0.8rem; margin: 0; white
 body.immersive .wk-timeline { grid-area: bar; margin: 0.25rem 0 0; height: 9px; }
 body.immersive .wk-steplabel { grid-area: lbl; margin: 0.1rem 0 0; font-size: 0.75rem; line-height: 1.2; }
 body.immersive .mini-chart { flex: 1 1 0; min-height: 28px; height: auto; margin: 0.15rem 0; }
+body.immersive .tile-pace .mini-chart { min-height: 0; }
 body.immersive .gauge { flex: 1 1 0; min-height: 0; max-height: none; }
-body.immersive .chart-key { display: none; }
 /* prompts float over the stats */
 body.immersive .knob-prompt, body.immersive .workout.done {
   position: fixed; z-index: 30; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0;
@@ -249,7 +249,7 @@ body.immersive .banner {
 
 /* rolling pace / rate chart inside the pace tile */
 .mini-chart { display: block; width: 100%; height: 72px; margin: 0.25rem 0; }
-.chart-key { margin-left: 0.5rem; font-size: 0.75rem; white-space: nowrap; }
+.chart-key { float: right; font-size: 0.75rem; white-space: nowrap; text-transform: none; letter-spacing: 0; }
 .chart-key i { display: inline-block; width: 10px; height: 3px; margin: 0 3px 2px 6px; vertical-align: middle; border-radius: 2px; }
 .key-pace { background: var(--accent); }
 .key-rate { background: var(--rate); }

@@ -8,12 +8,12 @@ export const ROLLING_S = 180; // chart shows the last 3 minutes
 
 const PACE_STEPS = [5, 10, 15, 30, 60, 120, 300];
 
-/** Round pace values (s/500m) for gridlines inside [lo, hi]: the smallest step giving at most 3. */
-export function paceGridlines(lo, hi) {
+/** Round pace values (s/500m) for gridlines inside [lo, hi]: the smallest step giving at most `max`. */
+export function paceGridlines(lo, hi, max = 3) {
   for (const step of PACE_STEPS) {
     const lines = [];
     for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) lines.push(v);
-    if (lines.length <= 3) return lines;
+    if (lines.length <= max) return lines;
   }
   return [];
 }
@@ -80,7 +80,7 @@ export function drawRolling(canvas, points, now, paceBand) {
 
     // faint gridlines at round paces, labelled on the left (clear of "3 min" in the corner)
     ctx.font = '10px system-ui, sans-serif';
-    for (const v of paceGridlines(lo, hi)) {
+    for (const v of paceGridlines(lo, hi, h > 200 ? 5 : 3)) { // more lines on a tall chart
       const gy = Math.round(y(v)) + 0.5;
       ctx.strokeStyle = muted;
       ctx.globalAlpha = 0.25;
@@ -130,6 +130,17 @@ export function drawRolling(canvas, points, now, paceBand) {
       s.forEach((p, i) => (i ? ctx.lineTo(x(p.t), y(p.pace)) : ctx.moveTo(x(p.t), y(p.pace))));
       ctx.strokeStyle = accent;
       ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    // a dot on the newest point: where you are now
+    const head = segments.at(-1)?.at(-1);
+    if (head && now - head.t < 3) {
+      ctx.beginPath();
+      ctx.arc(x(head.t), y(head.pace), 4.5, 0, 2 * Math.PI);
+      ctx.fillStyle = accent;
+      ctx.fill();
+      ctx.strokeStyle = style.getPropertyValue('--surface').trim();
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
   }
