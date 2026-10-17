@@ -18,7 +18,7 @@ export const SMOOTHING = {
 // Weight is stored in kg whatever the display units.
 const UI_DEFAULTS = {
   smoothing: 'medium', calorieSource: 'rower', units: 'imperial', weightKg: 75, defaultKnob: 6,
-  referencePaceS: null, knobOffset: 0, fastWork: true, sounds: true,
+  referencePaceS: null, knobOffset: 0, fastWork: true, sounds: true, metronome: false,
 };
 
 export function loadSettings() {

@@ -251,6 +251,10 @@ body.immersive .banner {
 .key-pace { background: var(--accent); }
 .key-rate { background: var(--rate); }
 
+/* stroke pacer under the gauge: the dot moves like the seat, out on the drive and back on the recovery */
+.pacer { position: relative; height: 6px; margin: 0.35rem 7px 0.15rem; border-radius: 3px; background: var(--surface-2); flex: none; }
+.pacer-dot { position: absolute; top: 50%; left: calc(var(--p, 0) * 100%); width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--accent); }
+
 /* stroke-rate gauge */
 .gauge { display: block; width: 100%; max-height: 150px; overflow: visible; }
 .g-track { fill: none; stroke: var(--surface-2); stroke-width: 16; stroke-linecap: round; }

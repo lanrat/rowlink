@@ -10,7 +10,8 @@ import { renderLive, renderConnection, renderWorkout, renderKnobPrompt, renderWo
 import { WorkoutRun, isHard } from './workout/engine.js';
 import { targetResults } from './session/targets.js';
 import { drawRolling, setupGauge, updateGauge, ROLLING_S } from './ui/livecharts.js';
-import { sound, unlockAudio, setSoundEnabled } from './workout/sound.js';
+import { sound, unlockAudio, setSoundEnabled, setMetronomeEnabled } from './workout/sound.js';
+import { Pacer } from './workout/pacer.js';
 import { WorkoutsView } from './ui/workouts.js';
 import { DebugView } from './ui/debug.js';
 import { loadSettings, saveSettings, pipelineSettings, setupSettingsDialog, SMOOTHING } from './ui/settings.js';
@@ -42,6 +43,7 @@ let workoutDone = null; // {name, text, targets, refPaceS} shown after a workout
 let series = []; // last few minutes of {t, pace, spm} for the rolling chart
 const workouts = new WorkoutsView(() => settings, startWorkout);
 setSoundEnabled(settings.sounds);
+setMetronomeEnabled(settings.metronome);
 
 // ---------- transports ----------
 
@@ -495,6 +497,21 @@ function frame() {
 }
 setInterval(frame, 250);
 
+// Stroke pacer: its own animation loop, since the dashboard only redraws 4 times a second.
+// Runs during row steps with a stroke-rate target (and before the first stroke, to set the beat).
+const pacer = new Pacer();
+function pacerFrame(nowMs) {
+  const step = run && !run.done ? (run.i < 0 ? run.next : run.step) : null;
+  const target = transport && step?.type === 'row' && step.spm ? (step.spm[0] + step.spm[1]) / 2 : null;
+  pacer.setRate(target);
+  if (pacer.tick(nowMs / 1000)) sound.click();
+  const el = $('pacer');
+  el.hidden = target == null;
+  if (target != null) el.style.setProperty('--p', pacer.position.toFixed(4));
+  requestAnimationFrame(pacerFrame);
+}
+requestAnimationFrame(pacerFrame);
+
 // ---------- wiring ----------
 
 function setView(name) {
@@ -600,6 +617,7 @@ setupSettingsDialog($('settings'), $('open-settings'), () => settings, (s) => {
   // calorie source and weight apply now; smoothing windows apply from the next session
   Object.assign(pipeline.settings, pipelineSettings(s));
   setSoundEnabled(s.sounds);
+  setMetronomeEnabled(s.metronome);
 });
 
 // for inspecting a live session from the browser console
