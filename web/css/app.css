@@ -84,6 +84,9 @@ main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
 /* Connect */
 .connect { text-align: center; padding-block: 12vh 2rem; }
 .connect h1 { margin: 0 0 0.5rem; font-size: 1.8rem; }
+.connect .source-link { margin-top: 3rem; font-size: 0.8rem; }
+.source-link a, .about a { color: var(--muted); }
+.source-link a:hover, .about a:hover { color: var(--text); }
 .connect .alt { margin-top: 3rem; display: flex; gap: 0.6rem; justify-content: center; align-items: center; flex-wrap: wrap; }
 
 /* Live */
