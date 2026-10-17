@@ -498,16 +498,19 @@ function frame() {
 setInterval(frame, 250);
 
 // Stroke pacer: its own animation loop, since the dashboard only redraws 4 times a second.
-// Runs during row steps with a stroke-rate target (and before the first stroke, to set the beat).
+// Shown during row steps with a stroke-rate target. It beats only while you're rowing: before
+// the first stroke and while auto-paused it stops, parked at the catch, and restarts with a catch.
 const pacer = new Pacer();
 function pacerFrame(nowMs) {
   const step = run && !run.done ? (run.i < 0 ? run.next : run.step) : null;
   const target = transport && step?.type === 'row' && step.spm ? (step.spm[0] + step.spm[1]) / 2 : null;
-  pacer.setRate(target);
+  const rowing = target != null && pipeline.clock.state === 'active';
+  pacer.setRate(rowing ? target : null);
   if (pacer.tick(nowMs / 1000)) sound.click();
   const el = $('pacer');
   el.hidden = target == null;
-  if (target != null) el.style.setProperty('--p', pacer.position.toFixed(4));
+  el.classList.toggle('stopped', !rowing);
+  if (target != null) el.style.setProperty('--p', (pacer.position ?? 0).toFixed(4));
   requestAnimationFrame(pacerFrame);
 }
 requestAnimationFrame(pacerFrame);
