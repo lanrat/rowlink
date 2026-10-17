@@ -111,6 +111,16 @@ function stepSummary(s) {
 
 let timelineFor = null; // the run whose steps are drawn in the timeline
 
+/** The current step's name under its timeline segment, kept inside the bar. */
+function placeStepLabel(i, step) {
+  const label = $('wk-steplabel');
+  set('wk-steplabel', step?.label ?? '');
+  const seg = $('wk-timeline').querySelector(`.seg[data-i="${i}"]`);
+  const width = label.parentElement.clientWidth;
+  const left = seg ? (parseFloat(seg.style.left) / 100) * width : 0;
+  label.style.marginLeft = `${Math.max(0, Math.min(left, width - label.offsetWidth))}px`;
+}
+
 /**
  * @param run WorkoutRun or null
  * @param p run.progress() or null before the first stroke
@@ -137,15 +147,16 @@ export function renderWorkout(run, p, view, { referencePaceS, overall }) {
   set('wk-total', `Total ${fmtTime(view.totalS)} · about ${fmtTime(Math.ceil(overall.remainingS))} left of ${length}`);
   const total = run.steps.length;
   set('wk-name', run.workout.name);
+  placeStepLabel(run.i < 0 ? 0 : run.i, run.i < 0 ? run.next : run.step);
   if (run.i < 0) {
-    set('wk-step', `Step 1 of ${total}: ${run.next?.label ?? ''}`);
+    set('wk-step', `Step 1 of ${total}`);
     set('wk-remaining', 'Ready');
     set('wk-targets', targetsText(run.next));
     set('wk-next', 'Starts on your first stroke.');
     return;
   }
   const step = run.step;
-  set('wk-step', `Step ${run.i + 1} of ${total}: ${step.label}`);
+  set('wk-step', `Step ${run.i + 1} of ${total}`);
   set('wk-remaining', remainingText(p));
   set('wk-targets', targetsText(step));
   set('wk-next', run.next ? `Next: ${stepSummary(run.next)}` : 'Last step');

@@ -1,8 +1,29 @@
 // Live visuals: rolling pace/stroke-rate chart (pace tile) and the stroke-rate gauge (rate tile).
 
+import { fmtPace } from './format.js';
+
 export const ROLLING_S = 180; // chart shows the last 3 minutes
 
 // ---------- rolling chart ----------
+
+const PACE_STEPS = [5, 10, 15, 30, 60, 120, 300];
+
+/** Round pace values (s/500m) for gridlines inside [lo, hi]: the smallest step giving at most 3. */
+export function paceGridlines(lo, hi) {
+  for (const step of PACE_STEPS) {
+    const lines = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) lines.push(v);
+    if (lines.length <= 3) return lines;
+  }
+  return [];
+}
+
+/** Stroke-rate scale snapped to multiples of 5, at least 10 spm tall, with room around the line. */
+export function rateScale(min, max) {
+  const hi = Math.ceil((max + 2) / 5) * 5;
+  const lo = Math.max(0, Math.min(Math.floor((min - 2) / 5) * 5, hi - 10));
+  return [lo, Math.max(hi, lo + 10)];
+}
 
 const css = () => getComputedStyle(document.documentElement);
 
@@ -35,7 +56,8 @@ export function drawRolling(canvas, points, now, paceBand) {
 
   const t0 = now - ROLLING_S;
   const pts = points.filter((p) => p.t >= t0 - 2);
-  const x = (t) => ((t - t0) / ROLLING_S) * w;
+  const gutter = 18; // right margin for the rate labels, so they never cover the newest data
+  const x = (t) => ((t - t0) / ROLLING_S) * (w - gutter);
 
   // pace scale: faster at the top; robust to outliers; at least 20 s tall; always includes the target band
   const paces = pts.map((p) => p.pace).filter((v) => v != null).sort((a, b) => a - b);
@@ -56,10 +78,27 @@ export function drawRolling(canvas, points, now, paceBand) {
     hi += pad;
     const y = (pace) => 3 + ((Math.min(hi, Math.max(lo, pace)) - lo) / (hi - lo)) * (h - 6);
 
+    // faint gridlines at round paces, labelled on the left (clear of "3 min" in the corner)
+    ctx.font = '10px system-ui, sans-serif';
+    for (const v of paceGridlines(lo, hi)) {
+      const gy = Math.round(y(v)) + 0.5;
+      ctx.strokeStyle = muted;
+      ctx.globalAlpha = 0.25;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w - gutter, gy);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if (gy < 12 || gy > h - 16) continue;
+      ctx.fillStyle = muted;
+      ctx.fillText(fmtPace(v), 4, gy - 3);
+    }
+
     if (paceBand) {
       ctx.fillStyle = accent;
       ctx.globalAlpha = 0.14;
-      ctx.fillRect(0, y(paceBand[0]), w, y(paceBand[1]) - y(paceBand[0]));
+      ctx.fillRect(0, y(paceBand[0]), w - gutter, y(paceBand[1]) - y(paceBand[0]));
       ctx.globalAlpha = 1;
     }
 
@@ -95,12 +134,17 @@ export function drawRolling(canvas, points, now, paceBand) {
     }
   }
 
-  // stroke rate: thin line on its own scale (no labels: the gauge shows the number)
+  // stroke rate: thin line on its own round-number scale, its ends labelled on the right
   const rates = pts.map((p) => p.spm).filter((v) => v != null);
   if (rates.length > 1) {
-    const rlo = Math.min(...rates) - 3;
-    const rhi = Math.max(...rates) + 3;
+    const [rlo, rhi] = rateScale(Math.min(...rates), Math.max(...rates));
     const ry = (v) => h - 3 - ((v - rlo) / (rhi - rlo || 1)) * (h - 6);
+    ctx.fillStyle = rate;
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(rhi), w - 4, 11);
+    ctx.fillText(String(rlo), w - 4, h - 4);
+    ctx.textAlign = 'left';
     ctx.beginPath();
     let pen = false;
     for (const p of pts) {
@@ -165,11 +209,21 @@ export function updateGauge(svg, spm, target, status) {
   } else {
     wedge.style.display = 'none';
   }
+  // the target's numbers just outside the ends of the wedge (the viewBox has a margin for them)
+  for (const [cls, value] of [['.g-tlo', target?.[0]], ['.g-thi', target?.[1]]]) {
+    const label = svg.querySelector(cls);
+    label.style.display = value == null ? 'none' : '';
+    if (value == null) continue;
+    const [x, y] = point(value, R + 21);
+    label.setAttribute('x', x.toFixed(1));
+    label.setAttribute('y', y.toFixed(1));
+    if (label.textContent !== String(value)) label.textContent = value;
+  }
   const needle = svg.querySelector('.g-needle');
   needle.style.display = spm == null ? 'none' : '';
   if (spm != null) {
-    const [x1, y1] = point(spm, R - 26);
-    const [x2, y2] = point(spm, R + 14);
+    const [x1, y1] = point(spm, R - 13); // crosses the track only: clear of the reading and the target numbers
+    const [x2, y2] = point(spm, R + 11);
     needle.setAttribute('x1', x1.toFixed(1));
     needle.setAttribute('y1', y1.toFixed(1));
     needle.setAttribute('x2', x2.toFixed(1));

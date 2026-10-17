@@ -66,6 +66,7 @@
         </div>
         <div class="wk-total muted" id="wk-total"></div>
         <div class="wk-timeline" id="wk-timeline" aria-hidden="true"></div>
+        <div class="wk-steplabel muted"><span id="wk-steplabel"></span></div>
         <div class="wk-next muted" id="wk-next"></div>
       </div>
 
@@ -99,13 +100,15 @@
       <div class="grid">
         <div class="tile" id="tile-spm">
           <div class="label">Stroke rate <span class="unit">spm</span></div>
-          <svg id="spm-gauge" class="gauge" viewBox="0 0 200 118" role="img" aria-label="Stroke rate gauge">
+          <svg id="spm-gauge" class="gauge" viewBox="-12 -12 224 130" role="img" aria-label="Stroke rate gauge">
             <path class="g-track" d=""/>
             <path class="g-target" d=""/>
             <line class="g-needle" x1="100" y1="100" x2="100" y2="20"/>
             <text id="v-spm" class="g-value" x="100" y="100" text-anchor="middle">–</text>
             <text class="g-min" x="20" y="116" text-anchor="middle"></text>
             <text class="g-max" x="180" y="116" text-anchor="middle"></text>
+            <text class="g-tlo" text-anchor="middle" dominant-baseline="central"></text>
+            <text class="g-thi" text-anchor="middle" dominant-baseline="central"></text>
           </svg>
           <div id="pacer" class="pacer" role="img" aria-label="Stroke pacer: follow the dot out on the drive and back on the recovery" hidden><div class="pacer-dot"></div></div>
           <div class="sub">avg <span id="v-avgspm">–</span></div>
