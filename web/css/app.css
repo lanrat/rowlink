@@ -273,7 +273,9 @@ body.immersive .banner {
 .wo-group { margin: 1rem 0 0.4rem; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; }
 .wo-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 0.6rem; }
 .wo-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
-.wo-card h3 { margin: 0; font-size: 1.05rem; }
+.wo-card h3 { margin: 0; font-size: 1.05rem; display: flex; align-items: baseline; gap: 0.6rem; }
+.wo-card h3 > :first-child { flex: 1; min-width: 0; }
+.wo-len { flex-shrink: 0; color: var(--muted); font-size: 0.85rem; font-weight: normal; font-variant-numeric: tabular-nums; }
 .wo-tag { margin-left: 0.5rem; padding: 0.1em 0.5em; border-radius: 999px; background: var(--surface-2); color: var(--muted); font-size: 0.75rem; font-weight: normal; vertical-align: 0.1em; white-space: nowrap; }
 .wo-card .meta { color: var(--muted); font-size: 0.85rem; }
 .wo-card .actions { margin-top: auto; justify-content: flex-start; }

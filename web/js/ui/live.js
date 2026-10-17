@@ -1,5 +1,5 @@
 // Live dashboard rendering. Called ~4x per second with pipeline.view().
-import { fmtPace, fmtTime, fmtInt, fmtDistance } from './format.js';
+import { fmtPace, fmtTime, fmtInt, fmtDistance, fmtLength } from './format.js';
 import { buildTimeline, updateTimeline } from './timeline.js';
 
 const $ = (id) => document.getElementById(id);
@@ -133,7 +133,8 @@ export function renderWorkout(run, p, view, { referencePaceS, overall }) {
     timelineFor = run;
   }
   updateTimeline($('wk-timeline'), run.i, overall.fraction);
-  set('wk-total', `Total ${fmtTime(view.totalS)} · about ${fmtTime(Math.ceil(overall.remainingS))} left`);
+  const length = fmtLength(overall.totalS, run.steps.some((s) => s.distanceM != null));
+  set('wk-total', `Total ${fmtTime(view.totalS)} · about ${fmtTime(Math.ceil(overall.remainingS))} left of ${length}`);
   const total = run.steps.length;
   set('wk-name', run.workout.name);
   if (run.i < 0) {

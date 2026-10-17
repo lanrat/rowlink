@@ -4,6 +4,11 @@ export function fmtPace(s) {
   return `${Math.floor(r / 60)}:${String(r % 60).padStart(2, '0')}`;
 }
 
+/** A workout's planned length; distance steps make it an estimate. */
+export function fmtLength(s, estimated) {
+  return `${estimated ? '≈ ' : ''}${fmtTime(s)}`;
+}
+
 export function fmtTime(s) {
   const t = Math.max(0, Math.floor(s ?? 0));
   const h = Math.floor(t / 3600);

@@ -47,10 +47,11 @@ test('timeline blocks are sized by planned time and cover 0..1', () => {
 test('overall progress and time left through a workout', () => {
   const run = new WorkoutRun({ segments: [{ type: 'row', durationS: 60 }, { type: 'rest', durationS: 60 }, { type: 'row', distanceM: 500 }] });
   const v = (movingS, distance, pace = 120) => ({ state: 'active', movingS, distance, pace, spm: 24 });
-  assert.deepEqual(run.overall(v(0, 0), 0, 120), { fraction: 0, remainingS: 240 });
+  assert.deepEqual(run.overall(v(0, 0), 0, 120), { fraction: 0, remainingS: 240, totalS: 240 }); // 500 m at 2:00 = 120 s
   run.update(v(1, 0), 1);
   run.update(v(31, 120), 31); // half way through step 1
   const mid = run.overall(v(31, 120), 31, 120);
   assert.ok(Math.abs(mid.fraction - 30 / 240) < 0.01, `fraction ${mid.fraction}`);
   assert.ok(Math.abs(mid.remainingS - 210) < 1, `left ${mid.remainingS}`);
+  assert.equal(mid.totalS, 240);
 });

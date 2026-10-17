@@ -163,20 +163,21 @@ export class WorkoutRun {
   }
 
   /**
-   * Whole-workout position: fraction done (for the timeline marker) and estimated seconds left.
+   * Whole-workout position: fraction done (for the timeline marker), estimated seconds left,
+   * and the planned length of the whole workout.
    * Distance steps use the current pace when there is one, else `paceS`.
    */
   overall(view, wallS, paceS = 150) {
     const total = plannedDurationS(this.steps, paceS) || 1;
-    if (this.i < 0) return { fraction: 0, remainingS: total };
-    if (this.done) return { fraction: 1, remainingS: 0 };
+    if (this.i < 0) return { fraction: 0, remainingS: total, totalS: total };
+    if (this.done) return { fraction: 1, remainingS: 0, totalS: total };
     const p = this.progress(view, wallS);
     const before = this.steps.slice(0, this.i).reduce((t, s) => t + stepDurationS(s, paceS), 0);
     const planned = stepDurationS(this.step, paceS);
     const doneInStep = planned * Math.min(1, Math.max(0, p.elapsed / p.total));
     const after = this.steps.slice(this.i + 1).reduce((t, s) => t + stepDurationS(s, paceS), 0);
     const leftInStep = p.remainingS ?? planned - doneInStep;
-    return { fraction: Math.min(1, (before + doneInStep) / total), remainingS: Math.max(0, leftInStep) + after };
+    return { fraction: Math.min(1, (before + doneInStep) / total), remainingS: Math.max(0, leftInStep) + after, totalS: total };
   }
 
   prompts(p, events) {

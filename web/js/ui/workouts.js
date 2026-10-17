@@ -3,7 +3,7 @@ import { PRESETS } from '../workout/presets.js';
 import { CLASSES } from '../workout/classes.js';
 import { flatten, plannedDurationS, plannedDistanceM } from '../workout/engine.js';
 import { listWorkouts, saveWorkout, deleteWorkout } from '../storage/db.js';
-import { fmtTime, fmtPace } from './format.js';
+import { fmtTime, fmtPace, fmtLength } from './format.js';
 import { buildTimeline } from './timeline.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,12 +18,13 @@ const el = (tag, attrs = {}, ...children) => {
   return e;
 };
 
-export function describe(workout, referencePaceS) {
+/** @param o.time include the planned length (cards show it next to the name instead) */
+export function describe(workout, referencePaceS, { time = true } = {}) {
   const steps = flatten(workout);
   const rows = steps.filter((s) => s.type === 'row');
   const knobs = rows.map((s) => s.knob).filter((k) => k != null);
   const dist = plannedDistanceM(steps);
-  const parts = [`≈ ${fmtTime(plannedDurationS(steps, referencePaceS ?? 150))}`];
+  const parts = time ? [`≈ ${fmtTime(plannedDurationS(steps, referencePaceS ?? 150))}`] : [];
   if (dist) parts.push(`${dist.toLocaleString()} m of distance pieces`);
   else if (workout.estDistanceM) parts.push(`≈ ${workout.estDistanceM.toLocaleString()} m`);
   if (knobs.length) parts.push(Math.min(...knobs) === Math.max(...knobs) ? `knob ${knobs[0]}` : `knob ${Math.min(...knobs)}–${Math.max(...knobs)}`);
@@ -76,12 +77,15 @@ export class WorkoutsView {
   card(w, own) {
     const ref = this.getSettings().referencePaceS;
     const preview = el('div', { class: 'wk-timeline', 'aria-hidden': 'true' });
-    buildTimeline(preview, flatten(w), ref ?? 150);
+    const steps = flatten(w);
+    buildTimeline(preview, steps, ref ?? 150);
+    const length = fmtLength(plannedDurationS(steps, ref ?? 150), plannedDistanceM(steps) > 0);
+    const meta = describe(w, ref, { time: false });
     return el('div', { class: 'wo-card' },
-      el('h3', {}, w.name, w.tag ? el('span', { class: 'wo-tag' }, w.tag) : null),
+      el('h3', {}, el('span', {}, w.name, w.tag ? el('span', { class: 'wo-tag' }, w.tag) : null), el('span', { class: 'wo-len' }, length)),
       preview,
       w.description ? el('div', { class: 'meta' }, w.description) : null,
-      el('div', { class: 'meta' }, describe(w, ref)),
+      meta ? el('div', { class: 'meta' }, meta) : null,
       el('div', { class: 'actions' },
         el('button', { class: 'primary', onclick: () => this.onStart(w) }, 'Start'),
         own
