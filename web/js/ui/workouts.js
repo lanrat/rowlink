@@ -66,7 +66,9 @@ export class WorkoutsView {
     const groups = [];
     if (mine.length) groups.push(['My workouts', mine, true]);
     const builtIn = [...PRESETS, ...CLASSES];
-    const cats = [...new Set(builtIn.map((p) => p.category))];
+    // Intervals first, then the classes, then everything else in preset order.
+    const rank = (c) => (c === 'Intervals' ? 0 : c.startsWith('Classes') ? 1 : 2);
+    const cats = [...new Set(builtIn.map((p) => p.category))].sort((a, b) => rank(a) - rank(b));
     for (const c of cats) groups.push([c, builtIn.filter((p) => p.category === c), false]);
     $('workouts-list').replaceChildren(...groups.flatMap(([title, list, own]) => [
       el('h3', { class: 'wo-group' }, title),
