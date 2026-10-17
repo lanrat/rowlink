@@ -89,13 +89,13 @@ function remainingText(p) {
   return fmtTime(Math.max(0, Math.ceil(p.remaining)));
 }
 
-function targetsText(step, hasReference) {
+// Without a reference pace there are no pace targets; the Workouts page explains why.
+function targetsText(step) {
   if (!step) return '';
   if (step.type === 'rest') return 'Rest';
   if (step.type === 'free') return 'No target · on the clock';
   const parts = [];
   if (step.paceRange) parts.push(`Pace ${fmtPace(step.paceRange[0])}–${fmtPace(step.paceRange[1])}`);
-  else if (step.pacePct && !hasReference) parts.push('(set a reference pace for pace targets)');
   if (step.spm) parts.push(`Rate ${step.spm[0]}–${step.spm[1]}`);
   if (step.knob != null) parts.push(`Knob ${step.knob}`);
   return parts.join(' · ');
@@ -105,7 +105,8 @@ function stepSummary(s) {
   if (!s) return '';
   const len = s.distanceM != null ? `${s.distanceM} m` : fmtTime(s.durationS);
   const knob = s.knob != null ? ` · knob ${s.knob}` : '';
-  return `${s.type === 'rest' ? 'Rest' : s.label} ${s.type === 'rest' || s.label?.includes(len) ? '' : len}${knob}`.replace(/\s+/g, ' ').trim();
+  const spm = s.type === 'row' && s.spm ? ` · ${s.spm[0]}–${s.spm[1]} spm` : '';
+  return `${s.type === 'rest' ? 'Rest' : s.label} ${s.type === 'rest' || s.label?.includes(len) ? '' : len}${knob}${spm}`.replace(/\s+/g, ' ').trim();
 }
 
 let timelineFor = null; // the run whose steps are drawn in the timeline
@@ -117,7 +118,6 @@ let timelineFor = null; // the run whose steps are drawn in the timeline
  * @param o.overall run.overall(): {fraction, remainingS}
  */
 export function renderWorkout(run, p, view, { referencePaceS, overall }) {
-  const hasReference = !!referencePaceS;
   const panel = $('workout-panel');
   panel.hidden = !run;
   // the workout sets the knob at every step, so there's nothing to press
@@ -140,14 +140,14 @@ export function renderWorkout(run, p, view, { referencePaceS, overall }) {
   if (run.i < 0) {
     set('wk-step', `Step 1 of ${total}: ${run.next?.label ?? ''}`);
     set('wk-remaining', 'Ready');
-    set('wk-targets', targetsText(run.next, hasReference));
+    set('wk-targets', targetsText(run.next));
     set('wk-next', 'Starts on your first stroke.');
     return;
   }
   const step = run.step;
   set('wk-step', `Step ${run.i + 1} of ${total}: ${step.label}`);
   set('wk-remaining', remainingText(p));
-  set('wk-targets', targetsText(step, hasReference));
+  set('wk-targets', targetsText(step));
   set('wk-next', run.next ? `Next: ${stepSummary(run.next)}` : 'Last step');
   const ts = run.targetStatus(view);
   if (ts.pace) $('tile-pace').dataset.target = ts.pace === 'ok' ? 'ok' : 'off';
