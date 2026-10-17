@@ -91,11 +91,14 @@ export class SimulatorTransport extends Emitter {
       this.inst = { pace: 0xffff, power: 400 + Math.round(Math.random() * 50), spm: 46 };
       this.firstStroke = false;
     } else {
-      // real rower: instantaneous pace/power swing about +/-25% stroke to stroke
+      // real rower: instantaneous pace swings about +/-25% stroke to stroke, power only about
+      // +/-15%. Power is not derived from the noisy pace: cubing it would swing power 2-3x and
+      // spike past 2000 W at fast paces.
       const pace = Math.round(this.targetPace * (1 + 0.25 * gauss()));
+      const watts = 2.8 * (500 / this.targetPace) ** 3; // Concept2's pace -> watts
       this.inst = {
         pace: Math.min(900, Math.max(90, pace)),
-        power: Math.round((2.8 / (pace / 500) ** 3) * (1 + 0.2 * gauss())),
+        power: Math.round(watts * Math.min(1.5, Math.max(0.6, 1 + 0.15 * gauss()))),
         spm: Math.round(this.targetSpm * 2 * (1 + 0.05 * gauss())) / 2,
       };
     }

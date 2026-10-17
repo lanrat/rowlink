@@ -58,8 +58,10 @@ export class Counter {
 
 export class Sanitizer {
   constructor() {
-    // 7 m/s = 1:11/500m, a world-class sprint. During spin-up: 6 m/s with no per-stroke slack.
-    this.distance = new Counter(7, 5, 6);
+    // 7 m/s = 1:11/500m, a world-class sprint. The rower reports distance in lumps: one
+    // second often carries ~3x (up to ~4x) the average speed, so the slack must cover a
+    // lump at fast paces (~19 m at 1:45/500m). During spin-up: 6 m/s with no slack.
+    this.distance = new Counter(7, 15, 6);
     this.strokes = new Counter(1.5, 1); // 90 spm
     this.kcal = new Counter(3, 1);
     this.elapsed = new Counter(1.5, 1); // rower's moving time (freezes while paused)

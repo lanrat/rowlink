@@ -85,6 +85,19 @@ test('02-knob: smoothed pace matches distance actually covered (within 10%)', ()
   }
 });
 
+test('02-knob at ~1:45/500m: distance lumps are kept, not rejected as glitches', () => {
+  // The rower reports distance in lumps (one second often carries ~3x the average speed).
+  // The captures never got faster than ~2:50, so replay one with distance stretched 2.5x.
+  const k = 2.5;
+  const slow = replay('02-knob.jsonl').views.at(-1);
+  const { pipeline, views } = replay('02-knob.jsonl', undefined, { distanceScale: k });
+  const fast = views.at(-1);
+  assert.ok(fast.avgPace < 115, `avg pace ${fast.avgPace.toFixed(0)} s/500m`);
+  // only spin-up strokes may be dropped (their limit is deliberately strict)
+  assert.ok(fast.distance > slow.distance * k * 0.95, `${fast.distance} m vs ${slow.distance * k} m`);
+  assert.ok(pipeline.sanitizer.distance.rejected < 40, `rejected ${pipeline.sanitizer.distance.rejected} m`);
+});
+
 test('04-chrome: shown pace catches up after a pause and a speed-up', () => {
   const { views } = replay('04-chrome.jsonl');
   const t0 = views[0].t;
