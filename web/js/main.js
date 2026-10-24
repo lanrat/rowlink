@@ -484,7 +484,7 @@ $('btn-new').addEventListener('click', () => newSession({ resetRower: true }));
 function setKnobByHand(level) {
   pipeline.setKnob(level);
   if (!run || run.i < 0 || !transport) return;
-  if (knobPrompt && !knobPrompt.initial && knobPrompt.knob === pipeline.knob) knobPrompt = null; // done as asked
+  if (knobPrompt?.initial || knobPrompt?.knob === pipeline.knob) knobPrompt = null; // handled by hand
   const now = transport.now();
   onWorkoutEvents(run.setKnob(pipeline.knob, pipeline.view(now), epochOf(now) / 1000), epochOf(now) / 1000);
 }
