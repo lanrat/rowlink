@@ -130,9 +130,11 @@ function placeStepLabel(i, step) {
 export function renderWorkout(run, p, view, { referencePaceS, overall }) {
   const panel = $('workout-panel');
   panel.hidden = !run;
-  // the workout sets the knob at every step, so there's nothing to press
-  $('tile-knob').classList.toggle('auto', !!run);
-  set('knob-sub', run ? 'set by workout' : 'match the rower');
+  // The workout sets the knob at each step with a level. Once it's under way, − / + override
+  // the level until the next step that sets one (see WorkoutRun.setKnob).
+  const planned = run ? run.plannedKnob : null;
+  $('tile-knob').classList.toggle('auto', planned != null && run.i < 0);
+  set('knob-sub', planned == null ? 'match the rower' : run.i < 0 || run.knob === planned ? 'set by workout' : `for now · workout ${planned}`);
   for (const id of ['tile-pace', 'tile-spm']) delete $(id).dataset.target;
   if (!run) {
     timelineFor = null;

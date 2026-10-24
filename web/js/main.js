@@ -478,8 +478,16 @@ $('btn-disconnect').addEventListener('click', () => {
   transport?.disconnect();
 });
 $('btn-new').addEventListener('click', () => newSession({ resetRower: true }));
-$('knob-down').addEventListener('click', () => pipeline.setKnob(pipeline.knob - 1));
-$('knob-up').addEventListener('click', () => pipeline.setKnob(pipeline.knob + 1));
+/** − / + on the knob tile. In a workout the level holds until the next step that sets one. */
+function setKnobByHand(level) {
+  pipeline.setKnob(level);
+  if (!run || run.i < 0 || !transport) return;
+  if (knobPrompt && !knobPrompt.initial && knobPrompt.knob === pipeline.knob) knobPrompt = null; // done as asked
+  const now = transport.now();
+  onWorkoutEvents(run.setKnob(pipeline.knob, pipeline.view(now), epochOf(now) / 1000), epochOf(now) / 1000);
+}
+$('knob-down').addEventListener('click', () => setKnobByHand(pipeline.knob - 1));
+$('knob-up').addEventListener('click', () => setKnobByHand(pipeline.knob + 1));
 
 const replaySelect = $('replay-select');
 for (const name of BUNDLED_CAPTURES) replaySelect.add(new Option(name, name));

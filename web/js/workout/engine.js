@@ -147,6 +147,24 @@ export class WorkoutRun {
     events.push({ type: 'step', step });
   }
 
+  /**
+   * The knob was changed by hand (`this.knob` is the rower's level). It holds until the next step
+   * that sets a level, which switches back to the workout's level with the usual prompt first.
+   * @returns a 'knob' event if that change is already due within KNOB_PROMPT_S, as its prompt has passed
+   */
+  setKnob(knob, view, wallS) {
+    this.knob = knob;
+    const change = this.i >= 0 && !this.done ? this.nextKnobChange() : null;
+    const p = change && this.progress(view, wallS);
+    return p?.remainingS != null && p.remainingS + change.betweenS <= KNOB_PROMPT_S ? [{ type: 'knob', knob: change.knob }] : [];
+  }
+
+  /** The knob level the workout calls for now: the latest one a step has set. */
+  get plannedKnob() {
+    for (let j = Math.min(this.i, this.steps.length - 1); j >= 0; j--) if (this.steps[j].knob != null) return this.steps[j].knob;
+    return firstKnob(this.steps);
+  }
+
   /** {elapsed, total, remaining, unit: 's'|'m', remainingS (seconds left, estimated for distance)} */
   progress(view, wallS) {
     const step = this.step;

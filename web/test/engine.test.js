@@ -168,3 +168,38 @@ test('skipping a step moves the knob to the next step\'s level', () => {
   run.skip(view, 7); // to B
   assert.equal(run.knob, 11);
 });
+
+test('a knob set by hand holds for the step, then the next step switches back after a prompt', () => {
+  const run = new WorkoutRun({ segments: [
+    { type: 'row', durationS: 60, knob: 8, label: 'A' },
+    { type: 'rest', durationS: 30, label: 'R' },
+    { type: 'row', durationS: 60, knob: 8, label: 'B' },
+    { type: 'row', durationS: 60, knob: 8, label: 'C' },
+  ] });
+  const view = (t) => ({ state: 'active', movingS: t, distance: 3 * t, pace: 150, spm: 24 });
+  run.update(view(1), 1);
+  assert.equal(run.plannedKnob, 8);
+  assert.deepEqual(run.setKnob(6, view(10), 10), [], 'no change due soon: the prompt comes at the usual time');
+  assert.equal(run.knob, 6);
+  assert.equal(run.plannedKnob, 8);
+  const log = [];
+  for (let t = 11; t <= 100; t++) for (const e of run.update(view(t), t)) log.push({ t, ...e, step: e.step?.label });
+  // A ends at 61, the rest at 91: prompted to go back to 8 ten seconds before B, with no input
+  assert.deepEqual(log.filter((e) => e.type === 'knob').map((e) => [e.t, e.knob]), [[91 - KNOB_PROMPT_S, 8]]);
+  assert.equal(run.knob, 8, 'back to the workout\'s level once B starts');
+  assert.deepEqual(run.setKnob(10, view(145), 145), [{ type: 'knob', knob: 8 }], 'changed inside the prompt window: prompt now');
+  run.update(view(151), 151);
+  assert.equal(run.step.label, 'C');
+  assert.equal(run.knob, 8);
+});
+
+test('a knob set by hand in a workout without knob levels just stays', () => {
+  const run = new WorkoutRun({ segments: [{ type: 'row', durationS: 20 }, { type: 'row', durationS: 20 }] });
+  const view = (t) => ({ state: 'active', movingS: t, distance: 3 * t, pace: 150, spm: 24 });
+  run.update(view(1), 1);
+  assert.deepEqual(run.setKnob(5, view(15), 15), []);
+  run.update(view(25), 25);
+  assert.equal(run.i, 1);
+  assert.equal(run.knob, 5);
+  assert.equal(run.plannedKnob, null);
+});
