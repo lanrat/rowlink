@@ -36,5 +36,5 @@ Run `npm install` once to get `@garmin/fitsdk`, which the FIT test uses to decod
 | `js/session/recorder.js` | 1 Hz samples + summary for a saved session |
 | `js/storage/db.js` | IndexedDB history, interrupted-session recovery, backup/restore |
 | `js/export/` | FIT (own encoder), TCX, CSV, JSON |
-| `js/workout/` | presets, engine (steps, countdowns, knob prompts, targets), beeps |
+| `js/workout/` | presets, engine (steps, countdowns, knob prompts, targets), sharing (workout files, GitHub suggestions), beeps |
 | `js/ui/` | live dashboard + workout panel, workouts + editor, history, charts, debug, settings |

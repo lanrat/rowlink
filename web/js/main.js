@@ -41,7 +41,7 @@ let pendingWorkout = null; // chosen before the rower was connected
 let knobPrompt = null; // {knob, initial?, hideAt?}
 let workoutDone = null; // {name, text, targets, refPaceS} shown after a workout ends
 let series = []; // last few minutes of {t, pace, spm} for the rolling chart
-const workouts = new WorkoutsView(() => settings, startWorkout);
+const workouts = new WorkoutsView(() => settings, startWorkout, showNotice);
 setSoundEnabled(settings.sounds);
 setMetronomeEnabled(settings.metronome);
 

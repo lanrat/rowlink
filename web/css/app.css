@@ -375,6 +375,9 @@ dialog {
 }
 dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 .settings-form h2 { margin-top: 0; }
+.share-form h2 { margin: 0 0 1rem; font-size: 1.2rem; overflow-wrap: anywhere; }
+.share-form > button { width: 100%; }
+.share-form p { margin: 0.4rem 0 1rem; font-size: 0.9rem; }
 .about { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .about p { margin: 0.3rem 0 0; flex-basis: 100%; font-size: 0.85rem; }
 #btn-reconnect { margin-top: 0.8rem; }

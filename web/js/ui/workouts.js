@@ -3,6 +3,8 @@ import { PRESETS } from '../workout/presets.js';
 import { CLASSES } from '../workout/classes.js';
 import { flatten, plannedDurationS, plannedDistanceM } from '../workout/engine.js';
 import { listWorkouts, saveWorkout, deleteWorkout, listSessions } from '../storage/db.js';
+import { workoutText, workoutFileName, parseWorkoutFile, suggestionUrl } from '../workout/share.js';
+import { downloadBlob } from '../export/download.js';
 import { fmtTime, fmtPace, fmtLength } from './format.js';
 import { buildTimeline } from './timeline.js';
 
@@ -55,11 +57,17 @@ export class WorkoutsView {
   /**
    * @param getSettings () => settings
    * @param onStart (workout) => void
+   * @param notify (text) => void, a short message for the user
    */
-  constructor(getSettings, onStart) {
+  constructor(getSettings, onStart, notify) {
     this.getSettings = getSettings;
     this.onStart = onStart;
+    this.notify = notify;
     this.editing = null;
+    this.sharing = null;
+    $('wo-import').addEventListener('change', (e) => this.importFile(e));
+    $('share-file').addEventListener('click', () => this.saveFile());
+    $('share-github').addEventListener('click', () => this.suggest());
     $('wo-new').addEventListener('click', () => this.edit({ id: null, name: '', description: '', segments: [{ type: 'row', durationS: 600, knob: 6 }] }));
     $('wo-add').addEventListener('click', () => this.addSegmentRow({ type: 'row', durationS: 60, knob: 6 }));
     $('wo-cancel').addEventListener('click', () => this.show());
@@ -123,7 +131,50 @@ export class WorkoutsView {
         own
           ? el('button', { onclick: () => this.edit(w) }, 'Edit')
           : el('button', { onclick: () => this.edit({ ...w, id: null, name: `${w.name} (copy)`, segments: flatten(w).map(stripLabel) }) }, 'Customize'),
+        own ? el('button', { onclick: () => this.share(w) }, 'Share') : null,
         own ? el('button', { class: 'danger', onclick: (e) => this.confirmDelete(e.currentTarget, w) }, 'Delete') : null));
+  }
+
+  share(w) {
+    this.sharing = w;
+    $('share-title').textContent = `Share “${w.name}”`;
+    $('wo-share').showModal();
+  }
+
+  saveFile() {
+    const w = this.sharing;
+    downloadBlob(new Blob([workoutText(w)], { type: 'application/json' }), workoutFileName(w));
+    $('wo-share').close();
+  }
+
+  /** Open a GitHub issue suggesting the workout; a long one goes on the clipboard to paste in. */
+  async suggest() {
+    const w = this.sharing;
+    const { url, complete } = suggestionUrl(w, describe(w, this.getSettings().referencePaceS));
+    if (!complete) {
+      try {
+        await navigator.clipboard.writeText(workoutText(w));
+        this.notify('Copied the workout: paste it into the GitHub issue.');
+      } catch {
+        this.notify('Too long to fill in: save the workout as a file and attach it to the GitHub issue.');
+      }
+    }
+    window.open(url, '_blank', 'noopener');
+    $('wo-share').close();
+  }
+
+  async importFile(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const w = parseWorkoutFile(JSON.parse(await file.text()));
+      await saveWorkout({ id: `w-${Date.now().toString(36)}`, ...w });
+      this.notify(`Added “${w.name}” to My workouts.`);
+    } catch (err) {
+      this.notify(`Import failed: ${err instanceof SyntaxError ? 'this is not a Rowlink workout file.' : err.message}`);
+    }
+    this.show();
   }
 
   async confirmDelete(btn, w) {

@@ -29,12 +29,14 @@ It also fixes the jumpy numbers other apps show. The rower's own pace and power 
 **Guided workouts, hands-free**
 - Intervals, benchmarks (500 m, 2000 m, 20 min), steady rows, a pyramid, and 27 classes modelled on the FED app's rower classes
 - A countdown and a big "Set knob to 8" prompt before each resistance change. The app assumes you made the change, so you never have to reach for the phone mid-row
+- Want a different knob for a step? Tap − / +. The next step switches back to the workout's level, with the usual prompt
 - Pace targets scale to your reference pace: set it in Settings, or row a benchmark
 - Copy any workout and edit it, or build your own from row and rest segments
 - The workouts you rowed last sit at the top of the list, ready to start again
+- Share your workouts as a file anyone can import, or suggest one on GitHub to be added for everyone
 
 **Full screen**
-- One tap fills the screen with the workout and the numbers. On Android it also turns to landscape, even with rotation locked
+- One tap (on the icon in the header, or the button under the dashboard) fills the screen with the workout and the numbers. On Android it also turns to landscape, even with rotation locked
 
 **History and export**
 - Every row of 20 m or more is saved in the browser, including sessions cut short by a closed tab or dead battery

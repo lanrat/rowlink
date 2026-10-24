@@ -166,6 +166,7 @@
         <div class="row history-head">
           <h2>Workouts</h2>
           <span class="spacer"></span>
+          <label class="file-btn" title="Add a workout someone shared with you">Import…<input id="wo-import" type="file" accept=".json,application/json" hidden></label>
           <button id="wo-new">New workout</button>
         </div>
         <p id="wo-ref-hint" class="muted"></p>
@@ -302,6 +303,17 @@
         <button type="button" id="btn-erase" class="danger">Erase all data</button>
         <p class="muted">Rowlink <span id="app-version"></span>. Your sessions, workouts and settings stay in this browser. <a href="https://github.com/lanrat/rowlink" target="_blank" rel="noopener">Source on GitHub</a>.</p>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="wo-share">
+    <form method="dialog" class="share-form">
+      <h2 id="share-title">Share</h2>
+      <button type="button" id="share-file" class="primary">Save as a file</button>
+      <p class="muted">A small .json file to send to anyone. They add it with Import… on the Workouts tab.</p>
+      <button type="button" id="share-github">Suggest it for Rowlink</button>
+      <p class="muted">Opens a GitHub issue with the workout filled in, so it can be added to the app for everyone. Needs a GitHub account.</p>
+      <div class="actions"><button value="close">Close</button></div>
     </form>
   </dialog>
 </body>
