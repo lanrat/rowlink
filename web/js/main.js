@@ -136,22 +136,31 @@ function record(view, t) {
   recorder.add(view, epochOf(t), run && run.i >= 0 && !run.done ? run.i : undefined);
 }
 
-/** Save the current session if it counts (>= 20 m), then forget it. */
+/**
+ * Save the current session if it counts (>= 20 m), then forget it.
+ * @returns {Promise<string|null>} the saved session's id, or null if it wasn't saved
+ */
 function finishSession() {
   const rec = recorder;
   recorder = null;
-  if (!rec) return;
+  if (!rec) return Promise.resolve(null);
   if (!shouldSave(rec)) {
     deleteSession(rec.id).catch(() => {}); // drop any autosave
     if (rec.worthSaving) showNotice('Not saved: simulator and replay sessions are only saved when enabled on the Debug tab.');
     else if (rec.distance > 0) showNotice(`Not saved: sessions under ${MIN_SAVE_DISTANCE_M} m are discarded.`);
-    return;
+    return Promise.resolve(null);
   }
   const { session, data } = rec.build({ complete: true, raw: capture.slice(captureStart) });
   const d = fmtDistance(session.summary.distanceM, settings.units);
-  saveSession(session, data)
-    .then(() => showNotice(`Saved: ${d.value} ${d.unit} in ${fmtTime(session.summary.movingS)}. See History.`))
-    .catch((e) => showNotice(`Could not save the session: ${e.message}`));
+  return saveSession(session, data)
+    .then(() => {
+      showNotice(`Saved: ${d.value} ${d.unit} in ${fmtTime(session.summary.movingS)}. See History.`);
+      return session.id;
+    })
+    .catch((e) => {
+      showNotice(`Could not save the session: ${e.message}`);
+      return null;
+    });
 }
 
 // Autosave so a closed tab or crash loses at most a few seconds; finalizeInterrupted() tidies up on next load.
@@ -161,9 +170,12 @@ setInterval(() => {
   saveSession(session, data).catch((e) => console.warn('Autosave failed:', e.message));
 }, AUTOSAVE_MS);
 
-/** Start a fresh session in the app and, optionally, on the rower (Reset + Start). */
+/**
+ * Start a fresh session in the app and, optionally, on the rower (Reset + Start).
+ * @returns the previous session's finishSession() promise
+ */
 function newSession({ resetRower }) {
-  finishSession();
+  const saved = finishSession();
   captureStart = capture.length;
   series = [];
   pipeline.reset();
@@ -172,6 +184,7 @@ function newSession({ resetRower }) {
     pipeline.expectReset(transport.now());
     transport.resetSession().catch((e) => console.warn('Rower reset failed, counting from its current values:', e.message));
   }
+  return saved;
 }
 
 // ---------- workouts ----------
@@ -254,9 +267,11 @@ function completeWorkout() {
     ? `On target: ${[tr.pace && `pace ${pct(tr.pace)}`, tr.spm && `rate ${pct(tr.spm)}`].filter(Boolean).join(', ')} of the time. Details in History.`
     : null;
   endWorkout();
-  newSession({ resetRower: true }); // saves the workout session
+  const saved = newSession({ resetRower: true }); // saves the workout session
   // closes itself so nothing needs a tap; a reference-pace offer stays up a little longer
-  workoutDone = { name: w.name, text, targets, refPaceS, hideAt: performance.now() + (refPaceS ? 60000 : 30000) };
+  const done = { name: w.name, text, targets, refPaceS, sessionId: null, hideAt: performance.now() + (refPaceS ? 60000 : 30000) };
+  workoutDone = done;
+  saved.then((id) => { done.sessionId = id; }); // offers the session in History once it's there
 }
 
 function knobPromptView(v, wallS) {
@@ -467,6 +482,14 @@ $('wk-skip').addEventListener('click', () => {
 });
 $('wk-end').addEventListener('click', endWorkout);
 $('wd-close').addEventListener('click', () => { workoutDone = null; });
+$('wd-history').addEventListener('click', () => {
+  const id = workoutDone?.sessionId;
+  if (!id) return;
+  workoutDone = null;
+  exitFullscreen(); // History needs the normal layout
+  setView('history');
+  history.openDetail(id);
+});
 $('wd-ref').addEventListener('click', () => {
   if (!workoutDone?.refPaceS) return;
   settings = { ...settings, referencePaceS: workoutDone.refPaceS };

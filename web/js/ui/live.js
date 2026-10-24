@@ -183,6 +183,7 @@ export function renderWorkoutDone(done) {
   set('wd-title', `${done.name}: complete`);
   set('wd-text', done.text);
   set('wd-targets', done.targets ?? '');
+  $('wd-history').hidden = !done.sessionId;
   const ref = $('wd-ref');
   ref.hidden = !done.refPaceS;
   if (done.refPaceS) set('wd-ref', `Use ${fmtPace(done.refPaceS)} /500m as my reference pace`);

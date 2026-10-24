@@ -275,6 +275,7 @@ body.immersive .banner {
 .g-min, .g-max { font-size: 12px; fill: var(--muted); font-family: inherit; }
 .g-tlo, .g-thi { font-size: 15px; fill: var(--muted); font-family: inherit; font-variant-numeric: tabular-nums; }
 .workout.done p { margin: 0.4rem 0 0.6rem; }
+.wd-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
 .knob-prompt {
   display: flex; align-items: center; justify-content: center; gap: 0.8rem; flex-wrap: wrap;
   background: var(--accent); color: var(--accent-text); border-radius: 16px;
