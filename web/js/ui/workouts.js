@@ -2,7 +2,7 @@
 import { PRESETS } from '../workout/presets.js';
 import { CLASSES } from '../workout/classes.js';
 import { flatten, plannedDurationS, plannedDistanceM } from '../workout/engine.js';
-import { listWorkouts, saveWorkout, deleteWorkout } from '../storage/db.js';
+import { listWorkouts, saveWorkout, deleteWorkout, listSessions } from '../storage/db.js';
 import { fmtTime, fmtPace, fmtLength } from './format.js';
 import { buildTimeline } from './timeline.js';
 
@@ -30,6 +30,26 @@ export function describe(workout, referencePaceS, { time = true } = {}) {
   if (knobs.length) parts.push(Math.min(...knobs) === Math.max(...knobs) ? `knob ${knobs[0]}` : `knob ${Math.min(...knobs)}–${Math.max(...knobs)}`);
   return parts.join(' · ');
 }
+
+const RECENT_COUNT = 3;
+
+/**
+ * The last few different workouts rowed, newest first, from saved sessions (newest first).
+ * Workouts that no longer exist (a deleted workout of yours) are skipped.
+ * @returns {{workout:object, rowedAt:number}[]}
+ */
+export function recentWorkouts(sessions, workouts, n = RECENT_COUNT) {
+  const byId = new Map(workouts.map((w) => [w.id, w]));
+  const recent = new Map();
+  for (const s of sessions) {
+    const w = byId.get(s.workout?.id);
+    if (w && !recent.has(w.id)) recent.set(w.id, { workout: w, rowedAt: s.startedAt });
+    if (recent.size === n) break;
+  }
+  return [...recent.values()];
+}
+
+const dayLabel = (ms) => new Date(ms).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
 export class WorkoutsView {
   /**
@@ -63,20 +83,29 @@ export class WorkoutsView {
     } catch (e) {
       console.warn('Could not load your workouts:', e.message);
     }
-    const groups = [];
-    if (mine.length) groups.push(['My workouts', mine, true]);
+    let sessions = [];
+    try {
+      sessions = await listSessions();
+    } catch (e) {
+      console.warn('Could not load your history:', e.message);
+    }
     const builtIn = [...PRESETS, ...CLASSES];
+    const recent = recentWorkouts(sessions, [...mine, ...builtIn]);
+    const groups = [];
+    if (recent.length) groups.push(['Recent', recent.map((r) => r.workout), new Map(recent.map((r) => [r.workout, r.rowedAt]))]);
+    if (mine.length) groups.push(['My workouts', mine]);
     // Intervals first, then the classes, then everything else in preset order.
     const rank = (c) => (c === 'Intervals' ? 0 : c.startsWith('Classes') ? 1 : 2);
     const cats = [...new Set(builtIn.map((p) => p.category))].sort((a, b) => rank(a) - rank(b));
-    for (const c of cats) groups.push([c, builtIn.filter((p) => p.category === c), false]);
-    $('workouts-list').replaceChildren(...groups.flatMap(([title, list, own]) => [
+    for (const c of cats) groups.push([c, builtIn.filter((p) => p.category === c)]);
+    $('workouts-list').replaceChildren(...groups.flatMap(([title, list, rowedAt]) => [
       el('h3', { class: 'wo-group' }, title),
-      el('div', { class: 'wo-cards' }, ...list.map((w) => this.card(w, own))),
+      el('div', { class: 'wo-cards' }, ...list.map((w) => this.card(w, mine.includes(w), rowedAt?.get(w)))),
     ]));
   }
 
-  card(w, own) {
+  /** @param rowedAt when it was last rowed, shown on the Recent cards */
+  card(w, own, rowedAt) {
     const ref = this.getSettings().referencePaceS;
     const preview = el('div', { class: 'wk-timeline', 'aria-hidden': 'true' });
     const steps = flatten(w);
@@ -88,6 +117,7 @@ export class WorkoutsView {
       preview,
       w.description ? el('div', { class: 'meta' }, w.description) : null,
       meta ? el('div', { class: 'meta' }, meta) : null,
+      rowedAt ? el('div', { class: 'meta' }, `Last rowed ${dayLabel(rowedAt)}`) : null,
       el('div', { class: 'actions' },
         el('button', { class: 'primary', onclick: () => this.onStart(w) }, 'Start'),
         own

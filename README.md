@@ -31,6 +31,7 @@ It also fixes the jumpy numbers other apps show. The rower's own pace and power 
 - A countdown and a big "Set knob to 8" prompt before each resistance change. The app assumes you made the change, so you never have to reach for the phone mid-row
 - Pace targets scale to your reference pace: set it in Settings, or row a benchmark
 - Copy any workout and edit it, or build your own from row and rest segments
+- The workouts you rowed last sit at the top of the list, ready to start again
 
 **Full screen**
 - One tap fills the screen with the workout and the numbers. On Android it also turns to landscape, even with rotation locked
