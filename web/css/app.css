@@ -78,6 +78,7 @@ button[aria-pressed="true"] { background: var(--accent); color: var(--accent-tex
 .tabs button { border: none; background: none; color: var(--muted); }
 .tabs button[aria-selected="true"] { color: var(--text); background: var(--surface-2); }
 .icon-btn { padding: 0.35em 0.6em; font-size: 1.1rem; line-height: 1; }
+.icon-btn svg { display: block; width: 1em; height: 1em; }
 
 main { padding: 1rem; max-width: 1200px; margin: 0 auto; }
 

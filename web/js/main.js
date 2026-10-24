@@ -325,6 +325,7 @@ function detach() {
   transport = null;
   $('connect').hidden = view !== 'live';
   $('live').hidden = true;
+  $('btn-fullscreen-top').hidden = true;
   renderConnection('disconnected');
   updateWakeLock();
 }
@@ -332,6 +333,7 @@ function detach() {
 function showLive() {
   $('connect').hidden = true;
   $('live').hidden = view !== 'live';
+  $('btn-fullscreen-top').hidden = !document.fullscreenEnabled; // easier to find than the one under the dashboard
   $('sim-controls').hidden = !(transport instanceof SimulatorTransport);
   $('replay-controls').hidden = !(transport instanceof ReplayTransport);
 }
@@ -606,6 +608,10 @@ document.addEventListener('fullscreenchange', () => {
   }
 });
 $('btn-fullscreen').addEventListener('click', enterFullscreen);
+$('btn-fullscreen-top').addEventListener('click', () => {
+  setView('live');
+  enterFullscreen();
+});
 window.addEventListener('resize', () => fitValues(true));
 $('fs-exit').addEventListener('click', exitFullscreen);
 
